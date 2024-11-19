@@ -1,7 +1,12 @@
-import { WhiteboardCallbacks } from "./WhiteboardCallbacks";
+import { WindowParams } from './Types';
+import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 export interface WhiteboardOptions {
   appIdentifier: string;
+  userCursor?: boolean;
+  userPayload?: object;
+  useMultiViews?: boolean;
+  windowParams?: WindowParams;
   roomUuid: string;
   roomToken: string;
   uid: string;
@@ -13,12 +18,21 @@ export interface WhiteboardOptions {
 export interface SdkOptions {
   appIdentifier: string;
   log: boolean;
+  useMultiViews: boolean;
+  userCursor: boolean;
+  disableNewPencilStroke: boolean;
+  enableAppliancePlugin: boolean;
 }
 
 export interface RoomOptions {
   uuid: string;
   roomToken: string;
-  region: string;
   uid: string;
-  writable?: boolean;
+  region: string;
+  isWritable?: boolean;
+  disableOperations?: boolean;
+  floatBar?: boolean;
+  disableCameraTransform?: boolean;
+  timeout?: number;
+  windowParams?: WindowParams;
 }

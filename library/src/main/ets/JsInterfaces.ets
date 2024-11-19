@@ -1,5 +1,5 @@
 import { Logger } from './Logger';
-import { AkkoEvent, RoomPhase } from './Types';
+import { AkkoEvent, RoomPhase, toRoomPhase } from './Types';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 interface SlideListener {
@@ -33,7 +33,7 @@ class JsResponse {
   __error?: JSRespError
 }
 
-class SDKError extends Error {
+export class SDKError extends Error {
   private jsStack: string;
 
   constructor(message: string, jsStack: string = "Native Error") {
@@ -197,9 +197,8 @@ export class RoomJsInterface {
   };
   firePhaseChanged = (args: string): void => {
     Logger.info("Phase changed " + args);
-    const phaseKey = Object.keys(RoomPhase).find(key => RoomPhase[key] === args);
-    if (phaseKey) {
-      const phase: RoomPhase = RoomPhase[phaseKey];
+    const phase = toRoomPhase(args)
+    if (phase) {
       this.callbacks?.onRoomPhaseChanged?.(phase);
     } else {
       Logger.error("Invalid phase value:" + args);

@@ -2,7 +2,7 @@ import { Logger } from './Logger';
 
 export class DsBridge {
   private static readonly LOG_TAG = "DsBridge";
-  private javaScriptNamespaceInterfaces: Map<string, object> = new Map<string, object>();
+  private namespaceInterfaces: Map<string, object> = new Map<string, object>();
   private webView: WebviewController;
   private dsInitBridge: DsInitBridge;
 
@@ -16,6 +16,7 @@ export class DsBridge {
     Logger.error(`${DsBridge.LOG_TAG} DEBUG ERR MSG:\n${error.replace(/'/g, "\\'")}`);
   }
 
+  // JSSdk call native entry
   public call(methodName: string, argStr: string): string {
     class Args {
       _dscbstub?: string | null
@@ -30,7 +31,7 @@ export class DsBridge {
     let error = "Js bridge called, but can't find a corresponding JavascriptInterface object, please check your code!";
     const nameStr = DsBridge.parseNamespace(methodName.trim());
     methodName = nameStr[1];
-    const jsb: object | undefined = this.javaScriptNamespaceInterfaces.get(nameStr[0]);
+    const jsb: object | undefined = this.namespaceInterfaces.get(nameStr[0]);
     const ret: Result = { code: -1 };
     if (!jsb) {
       this.printDebugInfo(error + argStr);
@@ -41,9 +42,9 @@ export class DsBridge {
     let method: Function | undefined;
 
     try {
-      const args: Args = JSON.parse(argStr);
+      const args: Args = JSON.parse(argStr)
       if (args._dscbstub) {
-        // TODO: not support asyn
+        // TODO: not support async
         Logger.error("_dscbstub is not supported ")
       }
       if (args.data) {
@@ -87,13 +88,13 @@ export class DsBridge {
   public addJavascriptObject(object: object, namespace: string | null) {
     namespace = namespace || "";
     if (object) {
-      this.javaScriptNamespaceInterfaces.set(namespace, object);
+      this.namespaceInterfaces.set(namespace, object);
     }
   }
 
   public removeJavascriptObject(namespace: string | null) {
     namespace = namespace || "";
-    this.javaScriptNamespaceInterfaces.delete(namespace);
+    this.namespaceInterfaces.delete(namespace);
   }
 
   public static parseNamespace(method: string): [string, string] {
@@ -116,7 +117,7 @@ export class DsBridge {
     const methodName = jsonObject.name.trim();
     const type = jsonObject.type.trim();
     const nameStr = DsBridge.parseNamespace(methodName);
-    const jsb = this.javaScriptNamespaceInterfaces.get(nameStr[0]);
+    const jsb = this.namespaceInterfaces.get(nameStr[0]);
 
     if (jsb) {
       const cls = jsb.constructor;
@@ -150,7 +151,7 @@ export class DsBridge {
   }
 }
 
-// 字段约定，无法修改
+// 字段约定
 class Call {
   callbackId: number;
   data: string;
@@ -163,7 +164,7 @@ class Call {
   }
 }
 
-// 字段约定，无法修改
+// 字段约定
 interface CallResponse {
   id: number;
   complete: boolean;
@@ -211,7 +212,7 @@ export class DsInitBridge {
       Logger.error("js callback handle error", e);
     }
   };
-  callHandler = (method: string, args: object[] | null, handler?: Callback<object>): void => {
+  public callHandler = (method: string, args: object[] | null, handler?: Callback<object>): void => {
     const call = new Call(method, ++this.callID, args ?? []);
 
     if (handler) {
