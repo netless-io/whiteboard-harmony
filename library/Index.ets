@@ -6,6 +6,6 @@ export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
 export { WhiteboardOptions } from "./src/main/ets/WhiteboardOptions"
 
-export { Appliance, ShapeType, MemberState, RoomMember, RoomPhase } from "./src/main/ets/Types"
+export { Appliance, ShapeType, MemberState, RoomMember, RoomPhase, RoomState, Region } from "./src/main/ets/Types"
 
 export const VERSION = "0.1.0-alpha01";

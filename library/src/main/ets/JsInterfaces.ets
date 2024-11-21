@@ -167,11 +167,13 @@ export class RoomJsInterface {
   setCallbacks = (callbacks: WhiteboardCallbacks): void => {
     this.callbacks = callbacks;
   };
-  fireCanUndoStepsUpdate = (args: object): void => {
-    Logger.info(`fireCanUndoStepsUpdate ${args}`);
+  fireCanUndoStepsUpdate = (steps: number): void => {
+    Logger.info(`fireCanUndoStepsUpdate ${steps}`);
+    this.callbacks?.onCanUndoStepsUpdate?.(steps)
   };
-  fireCanRedoStepsUpdate = (args: object): void => {
-    Logger.info(`fireCanRedoStepsUpdate ${args}`);
+  fireCanRedoStepsUpdate = (steps: number): void => {
+    Logger.info(`fireCanRedoStepsUpdate ${steps}`);
+    this.callbacks?.onCanRedoStepsUpdate?.(steps)
   };
   fireMagixEvent = (args: string): void => {
     Logger.info(`fireMagixEvent ${args}`);

@@ -1,4 +1,4 @@
-import { WindowParams } from './Types';
+import { Region, WindowParams } from './Types';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 /**
@@ -13,7 +13,7 @@ export interface WhiteboardOptions {
   roomUuid: string;
   roomToken: string;
   uid: string;
-  region: string;
+  region: Region;
   writable?: boolean;
   callbacks?: WhiteboardCallbacks;
 }
@@ -31,7 +31,7 @@ export interface RoomOptions {
   uuid: string;
   roomToken: string;
   uid: string;
-  region: string;
+  region: Region;
   isWritable?: boolean;
   disableOperations?: boolean;
   floatBar?: boolean;

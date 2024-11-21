@@ -1,4 +1,44 @@
 /**
+ * 数据中心。
+ */
+export enum Region {
+  /**
+   * `cn` (`cn-hz`)：中国杭州。
+   *
+   * 该数据中心为其他数据中心服务区未覆盖的地区提供服务。
+   */
+  CN_HZ = "cn-hz",
+
+  /**
+   * `us` (`us-sv`)：美国硅谷。
+   *
+   * 该数据中心为北美洲、南美洲地区提供服务。
+   */
+  US_SV = "us-sv",
+
+  /**
+   * `sg`：新加坡。
+   *
+   * 该数据中心为新加坡、东亚、东南亚地区提供服务。
+   */
+  SG = "sg",
+
+  /**
+   * `in_mum`：印度孟买。
+   *
+   * 该数据中心为印度地区提供服务。
+   */
+  IN_MUM = "in-mum",
+
+  /**
+   * `eu`：欧洲。
+   *
+   * 该数据中心为欧洲地区提供服务。
+   */
+  EU = "eu"
+}
+
+/**
  * `MemberState` 类，用于设置互动白板实时房间的白板工具状态。
  */
 export interface MemberState {
@@ -93,26 +133,6 @@ export enum ShapeType {
    * `SpeechBalloon`：对话气泡。
    */
   SpeechBalloon = "speechBalloon",
-}
-
-export interface RoomDelegate {
-  fireCanUndoStepsUpdate(steps: number): void;
-
-  onCanRedoStepsUpdate(steps: number): void;
-
-  fireMagixEvent(event: AkkoEvent): void;
-
-  fireHighFrequencyEvent(events: AkkoEvent[]): void;
-
-  firePhaseChanged(phase: RoomPhase): void;
-
-  fireKickedWithReason(reason: string): void;
-
-  fireDisconnectWithError(error: Error): void;
-
-  fireRoomStateChanged(state: string): void;
-
-  fireCatchErrorWhenAppendFrame(userId: string, error: Error): void;
 }
 
 /** `AkkoEvent` 类，用于设置自定义事件。 */

@@ -34,13 +34,20 @@ hdc fport ls
 ## 任务项目
 
 - [ ] 测试 WindowApp 注册，添加 App
-- [ ] 添加 WebView 合理配置
+- [x] 添加 WebView 合理配置
 - [ ] 文档补全
     - [ ] README
     - [ ] QuickStart
     - [ ] API
     - [ ] Recipes
     - [ ] Common Whiteboard Reference
+- [ ] 接口同步
+    - [ ] MagixEvent
+    - [ ] Page
+    - [ ] window apps
+    - [ ] Slide
+    - [ ] WindowDocsEvent
+    - [ ] SDKError
 
 ## 发布
 
@@ -49,8 +56,9 @@ hdc fport ls
 * keygen
 * 发布码
 
-[发布共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-har-publish-V13) 
+[发布共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-har-publish-V13)
 
 命令行工具
+
 * [hvigorw](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-hvigor-commandline-V13)
 * [ohpmrc](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-ohpmrc-V13)

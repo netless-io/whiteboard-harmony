@@ -19,38 +19,35 @@ export struct Whiteboard {
   aboutToAppear(): void {
     try {
       webview.WebviewController.setWebDebuggingAccess(this.webDebug);
-
-      interface LoggerItem {
-        level,
-        message,
-        error
-      }
-
-      Logger.setLogCallback((level, message, error) => {
-        this.callbacks.onLogger?.({ level, message, error } as LoggerItem)
-      })
     } catch (error) {
       console.error(`ErrorCode: ${(error as BusinessError).code},  Message: ${(error as BusinessError).message}`);
     }
+
+    interface LoggerItem {
+      level,
+      message,
+      error
+    }
+
+    Logger.setLogCallback((level, message, error) => {
+      this.callbacks.onLogger?.({ level, message, error } as LoggerItem)
+    })
   }
 
   build() {
     Column() {
       Web({ src: $rawfile("whiteboard/index.html"), controller: this.webController })
+        .mediaPlayGestureAccess(false)
+        .textZoomRatio(100)
+        .domStorageAccess(true)
+        .fileAccess(false)
+        .javaScriptAccess(true)
+        .overviewModeAccess(true)
+        .metaViewport(true)
         .width("100%")
         .height("100%")
         .onControllerAttached(() => {
           this.webController.registerJavaScriptProxy(this.dsBridge, "_dsbridge", ["call"])
-        })
-        .onLoadIntercept((event) => {
-          if (event) {
-            console.log('onLoadIntercept url:' + event.data.getRequestUrl())
-            console.log('url:' + event.data.getRequestUrl())
-            console.log('isMainFrame:' + event.data.isMainFrame())
-            console.log('isRedirect:' + event.data.isRedirect())
-            console.log('isRequestGesture:' + event.data.isRequestGesture())
-          }
-          return false
         })
         .onOverrideUrlLoading((webResourceRequest: WebResourceRequest) => {
           if (webResourceRequest && webResourceRequest.getRequestUrl() == "about:blank") {
@@ -60,24 +57,22 @@ export struct Whiteboard {
         })
         .onPageBegin((event) => {
           if (event) {
-            console.log('onPageBegin url:' + event.url);
+            Logger.info('onPageBegin url:' + event.url);
           }
         })
         .onFirstContentfulPaint(event => {
           if (event) {
-            console.log("onFirstContentfulPaint:" + "[navigationStartTick]:" +
-            event.navigationStartTick + ", [firstContentfulPaintMs]:" +
-            event.firstContentfulPaintMs);
+            Logger.info(`onFirstContentfulPaint [navigationStartTick]: ${event.navigationStartTick}, [firstContentfulPaintMs]: ${event.firstContentfulPaintMs}`)
           }
         })
         .onProgressChange((event) => {
           if (event) {
-            console.log('newProgress:' + event.newProgress);
+            Logger.info('newProgress:' + event.newProgress);
           }
         })
         .onPageEnd((event) => {
           if (event) {
-            console.log('onPageEnd url:' + event.url);
+            Logger.info('onPageEnd url:' + event.url);
           }
           const sdkJsInterface = new SdkJsInterface(this.callbacks)
           const roomJsInterface = new RoomJsInterface(this.callbacks)
@@ -117,23 +112,24 @@ export struct Whiteboard {
               } else {
                 const resultObj: JoinRoomResult = JSON.parse(result)
                 Logger.info(`join room successfully ${resultObj.state}`)
+                this.callbacks.onRoomReady?.()
               }
             } else {
-              // TODO:
+              Logger.error("join room failed ${result}")
             }
           });
           this.controller.attachWhiteboard(this.dsBridge)
         })
         .onPageVisible((event) => {
-          console.log('onPageVisible url:' + event.url);
+          Logger.info('onPageVisible url:' + event.url);
         })
         .onRenderExited((event) => {
           if (event) {
-            console.log('onRenderExited reason:' + event.renderExitReason);
+            Logger.info('onRenderExited reason:' + event.renderExitReason);
           }
         })
         .onDisAppear(() => {
-
+          Logger.info('onDisAppear')
         })
     }
   }

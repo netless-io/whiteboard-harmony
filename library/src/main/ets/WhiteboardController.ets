@@ -11,6 +11,7 @@ import {
   ShapeType,
   toRoomPhase,
   ViewMode,
+  WindowPrefersColorScheme,
 } from './Types';
 import { util } from '@kit.ArkTS';
 import { SDKError } from './JsInterfaces';
@@ -26,6 +27,17 @@ export class WhiteboardController {
     this.whiteboard = undefined
   }
 
+  /**
+   * 设置用户在房间中是否为互动模式。
+   *
+   * @param writable 用户在房间中是否为互动模式：
+   *  - `true`：互动模式，即具有读写权限。
+   *  - `false`：订阅模式，即具有只读权限。
+   *
+   * @returns Promise
+   *  如果方法调用成功，则返回用户在房间中的读写状态（`true` 或 `false`）。
+   *  如果方法调用失败，则返回错误信息。
+   */
   setWritable(writable: boolean): Promise<boolean> {
     interface WritableResult {
       isWritable: boolean
@@ -52,6 +64,12 @@ export class WhiteboardController {
     return this.writable
   }
 
+  /**
+   * 设置教具类型
+   *
+   * @param appliance 教具类型
+   * @param shapeType 形状
+   */
   setAppliance(appliance: Appliance, shapeType?: ShapeType) {
     let state: MemberState = {
       currentApplianceName: appliance,
@@ -60,6 +78,11 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 设置画笔颜色
+   *
+   * @param color
+   */
   setStrokeColor(color: ResourceColor) {
     const metrics = ColorMetrics.resourceColor(color)
     let state: MemberState = {
@@ -68,6 +91,11 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 设置画笔粗细
+   *
+   * @param width
+   */
   setStrokeWidth(width: number) {
     let state: MemberState = {
       strokeWidth: width,
@@ -75,6 +103,11 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 设置字大小
+   *
+   * @param size
+   */
   setTextSize(size: number) {
     let state: MemberState = {
       textSize: size,
@@ -82,6 +115,14 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 设置字颜色
+   *
+   * @remarks
+   * 默认状态下，文字的颜色和画笔颜色保持一致
+   *
+   * @param color
+   */
   setTextColor(color: ResourceColor) {
     const metrics = ColorMetrics.resourceColor(color)
     let state: MemberState = {
@@ -90,42 +131,81 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 修改房间内的白板工具状态。
+   */
   setMemberState(state: MemberState) {
     this.whiteboard?.callHandler("room.setMemberState", [state])
   }
 
+  /**
+   * 复制选中内容。
+   */
   copy(): void {
     this.whiteboard?.callHandler("room.sync.copy", []);
   }
 
+  /**
+   * 粘贴复制的内容。
+   */
   paste(): void {
     this.whiteboard?.callHandler("room.sync.paste", []);
   }
 
+  /**
+   * 复制并粘贴选中的内容。
+   */
   duplicate(): void {
     this.whiteboard?.callHandler("room.sync.duplicate", []);
   }
 
+  /**
+   * 删除选中的内容。
+   */
   deleteOperation(): void {
     this.whiteboard?.callHandler("room.sync.delete", []);
   }
 
+  /**
+   * 开启/禁止本地序列化。
+   *
+   * 设置 `disableSerialization(true)` 后，undo redo 计数不生效、以下方法将不生效：
+   * - `redo`
+   * - `undo`
+   * @param disable 默认为 true
+   */
   disableSerialization(disable: boolean): void {
     this.whiteboard?.callHandler("room.sync.disableSerialization", [disable]);
   }
 
+  /**
+   * 重做，即回退撤销操作。
+   *
+   * @note 该方法仅当 disableSerialization 设为 `false` 时生效。
+   */
   redo(): void {
     this.whiteboard?.callHandler("room.redo", [])
   }
 
+  /**
+   * 撤销上一步操作。
+   *
+   * @note 该方法仅当 disableSerialization 设为 `false` 时生效。
+   */
   undo(): void {
     this.whiteboard?.callHandler("room.undo", [])
   }
 
+  /**
+   * 切换视角模式。
+   */
   setViewMode(viewMode: ViewMode): void {
     this.whiteboard?.callHandler("room.setViewMode", [viewMode]);
   }
 
+  /**
+   * 主动断开与互动白板实时房间实例的连接。
+   */
   disconnect(): Promise<object> {
     return new Promise((resolve, reject) => {
       this.whiteboard?.callHandler("room.disconnect", [], (result: object) => {
@@ -138,6 +218,9 @@ export class WhiteboardController {
     });
   }
 
+  /**
+   * 插入图片显示区域。
+   */
   insertImage(info: ImageInformation): void {
     if (!info.uuid) {
       info.uuid = util.generateRandomUUID();
@@ -146,6 +229,10 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.completeImageUpload", [info.uuid, info.url!!])
   }
 
+
+  /**
+   * 获取房间的所有状态。
+   */
   getRoomState(): Promise<RoomState> {
     return new Promise((resolve, reject) => {
       this.whiteboard?.callHandler("room.state.getRoomState", [], (result: object) => {
@@ -178,6 +265,14 @@ export class WhiteboardController {
     });
   }
 
+  /**
+   * 获取房间的用户列表。
+   *
+   * @remarks
+   * 房间的用户列表仅包含互动模式（具有读写权限）的用户，不包含订阅模式（只读权限）的用户。
+   *
+   * @return 用户列表
+   */
   getRoomMembers(): Promise<RoomMember[]> {
     return new Promise((resolve, reject) => {
       this.whiteboard?.callHandler("room.getRoomMembers", [], (result: object) => {
@@ -257,6 +352,17 @@ export class WhiteboardController {
     });
   }
 
+  /**
+   * 切换至当前场景组下的指定场景。
+   *
+   * 方法调用成功后，房间内的所有用户看到的白板都会切换到指定场景。
+   * 指定的场景必须在当前场景组中，否则方法调用会失败。
+   *
+   * @param index - 目标场景在当前场景组下的索引号。
+   * @returns 一个 `Promise<boolean>`，用于获取 `setSceneIndex` 的调用结果：
+   *   - 如果方法调用成功，则返回 `true`。
+   *   - 如果方法调用失败，则抛出错误信息。
+   */
   setSceneIndex(index: number): Promise<boolean> {
     return new Promise((resolve, reject) => {
       this.whiteboard?.callHandler("room.setSceneIndex", [index], (result: object) => {
@@ -274,10 +380,36 @@ export class WhiteboardController {
     });
   }
 
+  /**
+   * 在指定场景组下插入多个场景。
+   *
+   * @remarks
+   * 调用该方法插入多个场景后不会切换到新插入的场景。如果要切换至新插入的场景，需要调用 `setScenePath`。
+   *
+   * @param dir - 场景组名称，必须以 `/` 开头。不能为场景路径。
+   * @param scenes - 由多个场景构成的数组。单个场景的字段详见 {@link Scene}。
+   * @param index - 待插入的多个场景中，第一个场景在该场景组的索引号。
+   *   - 如果传入的索引号大于该场景组已有场景总数，新插入的场景会排在现有场景的最后。
+   *   - 场景的索引号从 0 开始。
+   */
   putScenes(dir: string, scenes: Scene[], index: number) {
     this.whiteboard?.callHandler("room.putScenes", [dir, scenes, index])
   }
 
+  /**
+   * 移动场景。
+   *
+   * 成功移动场景后，场景路径也会改变。
+   *
+   * @remarks
+   * - 该方法只能移动场景，不能移动场景组，即 `sourcePath` 只能是场景路径，不能是场景组路径。
+   * - 该方法支持改变指定场景在当前所属场景组下的位置，也支持将指定场景移至其他场景组。
+   *
+   * @param sourcePath - 需要移动的场景原路径。必须为场景路径，不能是场景组的路径。
+   * @param targetDirOrPath - 目标场景组路径或目标场景路径：
+   *   - 当 `targetDirOrPath` 设置为目标场景组路径时，表示将指定场景移至其他场景组中，场景路径会发生改变，但是场景名称不变。
+   *   - 当 `targetDirOrPath` 设置为目标场景路径时，表示改变指定场景在当前场景组的位置，场景路径和场景名称都会发生改变。
+   */
   moveScene(srcPath: string, dstPath: string) {
     this.whiteboard?.callHandler("room.moveScene", [srcPath, dstPath])
   }
@@ -321,10 +453,51 @@ export class WhiteboardController {
    * 该方法用于禁止或允许用户通过触屏手势移动或缩放视角。
    *
    * @param disable 是否禁止用户调整视角：
-   *                - `true`: 禁止用户调整视角。
-   *                - `false`: (默认) 允许用户调整视角。
+   *  - `true`: 禁止用户调整视角。
+   *  - `false`: (默认) 允许用户调整视角。
    */
   disableCameraTransform(disable: boolean) {
-    this.whiteboard?.callHandler("displayer.setDisableCameraTransform", [disable])
+    this.whiteboard?.callHandler("room.disableCameraTransform", [disable])
+  }
+
+  /**
+   * 禁止/允许用户操作白板工具。
+   *
+   * @param disable 是否禁止用户操作白板工具：
+   *  - `true`：禁止用户操作白板工具操作。
+   *  - `false`：（默认）允许用户操作白板工具输入操作。
+   */
+  disableDeviceInputs(disable: boolean) {
+    this.whiteboard?.callHandler("room.disableDeviceInputs", [disable])
+  }
+
+  /**
+   * 多窗口模式下，禁止/允许窗口操作。
+   *
+   * @param disable - 是否禁止窗口操作：
+   *   - `true`：禁止窗口操作。
+   *   - `false`：（默认）允许窗口操作。
+   */
+  disableWindowOperation(disable: boolean) {
+    this.whiteboard?.callHandler("room.disableWindowOperation", [disable])
+  }
+
+  /**
+   * 设置多窗口显示比例
+   *
+   * @param ratio 高与宽比例, 初始化默认值 9:16
+   */
+  setContainerSizeRatio(ratio: number) {
+    // bridge.callHandler("room.setContainerSizeRatio", new Object[]{ratio});
+    this.whiteboard?.callHandler("room.setContainerSizeRatio", [ratio])
+  }
+
+  /**
+   * 设置设置暗色模式
+   *
+   * @param colorScheme
+   */
+  setPrefersColorScheme(colorScheme: WindowPrefersColorScheme) {
+    this.whiteboard?.callHandler("room.setPrefersColorScheme", [colorScheme])
   }
 }
