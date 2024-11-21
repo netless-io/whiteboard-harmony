@@ -1,12 +1,6 @@
 import { Logger } from './Logger';
-import { AkkoEvent, RoomPhase, toRoomPhase } from './Types';
+import { AkkoEvent, SlideErrorType, SlideListener, toRoomPhase } from './Types';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
-
-interface SlideListener {
-  slideUrlInterrupter(url: string, complete: (result: string) => void): void;
-
-  onSlideError(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void;
-}
 
 interface PostMessageCallback {
   onMessage(jsonObject: object): void;
@@ -14,14 +8,6 @@ interface PostMessageCallback {
 
 interface CompletionHandler<T> {
   complete(result: T): void;
-}
-
-enum SlideErrorType {
-  RESOURCE_ERROR,
-  RUNTIME_ERROR,
-  RUNTIME_WARN,
-  CANVAS_CRASH,
-  UNKNOWN
 }
 
 interface JSRespError {
@@ -148,10 +134,10 @@ export class SdkJsInterface {
     }
   };
   onPPTMediaPlay = (args: object): void => {
-    console.log("onPPTMediaPlay called");
+    Logger.info("onPPTMediaPlay called");
   };
   onPPTMediaPause = (args: object): void => {
-    console.log("onPPTMediaPause called");
+    Logger.info("onPPTMediaPause called");
   };
   setupFail = (args: object): void => {
     console.log(`setupFail called ${args}}`);

@@ -1,12 +1,20 @@
 import { promptAction, router } from '@kit.ArkUI'
-import { ShapeType, Whiteboard, WhiteboardCallbacks, WhiteboardController, WhiteboardOptions } from 'whiteboard'
-import { Appliance, RoomPhase } from 'whiteboard/src/main/ets/Types'
+import {
+  Appliance,
+  RoomPhase,
+  ShapeType,
+  Whiteboard,
+  WhiteboardCallbacks,
+  WhiteboardController,
+  WhiteboardOptions,
+  VERSION as WhiteboardVersion
+} from '@shengwang/whiteboard'
 
 @Entry
 @Component
 struct Second {
   @State writeable: boolean = true
-  @Prop whiteboardOptions: WhiteboardOptions = {
+  whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
     roomUuid: "056e9dd0a33e11ef844c9de7e0348444",
     roomToken: "NETLESSROOM_YWs9eTBJOWsxeC1IVVo4VGh0NyZub25jZT0xNzMxNjY3MjI1MDY3MDAmcm9sZT0wJnNpZz0yZmE2NjFlNmY1Yjk4MDJkNWNkMDA4NjhhYjIyZjk3ZTY5YWEyNzU1N2U2ZjU4NmEyYWQ2OTE4ZmZiZTJhYThkJnV1aWQ9MDU2ZTlkZDBhMzNlMTFlZjg0NGM5ZGU3ZTAzNDg0NDQ",

@@ -1,6 +1,9 @@
 import { WindowParams } from './Types';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 
+/**
+ * Whiteboard 统一的配置项目
+ */
 export interface WhiteboardOptions {
   appIdentifier: string;
   userCursor?: boolean;

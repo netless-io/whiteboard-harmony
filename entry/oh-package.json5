@@ -6,7 +6,7 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "whiteboard": "file:../library"
+    "@shengwang/whiteboard": "file:../library"
   }
 }
 

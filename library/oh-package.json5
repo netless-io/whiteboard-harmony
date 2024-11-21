@@ -1,9 +1,9 @@
 {
-  "name": "whiteboard",
-  "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "name": "@shengwang/whiteboard",
+  "version": "0.1.0-alpha01",
+  "description": "an agora whiteboard library for harmony",
   "main": "Index.ets",
-  "author": "",
-  "license": "Apache-2.0",
+  "author": "fenglibin",
+  "license": "MIT",
   "dependencies": {},
 }

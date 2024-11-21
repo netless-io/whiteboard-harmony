@@ -1,9 +1,8 @@
-# 鸿蒙开发知识
+# Whiteboard 鸿蒙开发
 
 ## 静态共享包 vs 动态共享包
 
 [HAR（Harmony Archive）是静态共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/har-package-V5)
-
 [HSP（Harmony Shared Package）是动态共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/in-app-hsp-V5)
 
 ## 依赖Library
@@ -31,3 +30,27 @@ hdc fport tcp:9222 localabstract:webview_devtools_remote_3458
 hdc fport ls
 
 ```
+
+## 任务项目
+
+- [ ] 测试 WindowApp 注册，添加 App
+- [ ] 添加 WebView 合理配置
+- [ ] 文档补全
+    - [ ] README
+    - [ ] QuickStart
+    - [ ] API
+    - [ ] Recipes
+    - [ ] Common Whiteboard Reference
+
+## 发布
+
+前置条件生成
+
+* keygen
+* 发布码
+
+[发布共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-har-publish-V13) 
+
+命令行工具
+* [hvigorw](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-hvigor-commandline-V13)
+* [ohpmrc](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-ohpmrc-V13)

@@ -1,11 +1,36 @@
+/**
+ * `MemberState` 类，用于设置互动白板实时房间的白板工具状态。
+ */
 export interface MemberState {
+  /**
+   * 白板工具名称
+   */
   currentApplianceName?: Appliance;
+
+  /**
+   * 图形工具的类型。
+   */
   shapeType?: ShapeType;
+
+  /**
+   * 线条颜色，为 RGB 格式，例如，[0, 0, 255] 表示蓝色。
+   */
   strokeColor?: [number, number, number];
+
+  /**
+   * 线条粗细。
+   */
   strokeWidth?: number;
+
+  /**
+   * 字体大小。Chrome 浏览器对于小于 12 的字体会自动调整为 12。
+   */
   textSize?: number;
+
+  /**
+   * 文本颜色，为 RGB 格式，例如，[0, 0, 255] 表示蓝色。不设置情况与 strokeColor 使用相同
+   */
   textColor?: [number, number, number];
-  textCanSelectText?: boolean;
 }
 
 /**
@@ -28,6 +53,9 @@ export interface RoomMember {
   payload?: object;
 }
 
+/**
+ * 白板工具名称。
+ */
 export enum Appliance {
   PENCIL = "pencil",
   SELECTOR = "selector",
@@ -45,13 +73,27 @@ export enum Appliance {
   LASER_PENCIL = "laserPen",
 }
 
+/**
+ * 图形工具扩展，教具 Appliance 设置成 Shape 时配置
+ */
 export enum ShapeType {
+  /**
+   * `Triangle`：（默认）三角形。
+   */
   Triangle = "triangle",
+  /**
+   * `Rhombus`：菱形。
+   */
   Rhombus = "rhombus",
+  /**
+   * `Pentagram`：五角星。
+   */
   Pentagram = "pentagram",
+  /**
+   * `SpeechBalloon`：对话气泡。
+   */
   SpeechBalloon = "speechBalloon",
 }
-
 
 export interface RoomDelegate {
   fireCanUndoStepsUpdate(steps: number): void;
@@ -73,10 +115,39 @@ export interface RoomDelegate {
   fireCatchErrorWhenAppendFrame(userId: string, error: Error): void;
 }
 
+/** `AkkoEvent` 类，用于设置自定义事件。 */
 export interface AkkoEvent {
-  // 定义事件条目的结构
+  eventName: string;
+  payload: object;
 }
 
+/**
+ * `EventEntry` 类，用于获取自定义事件。
+ */
+export interface EventEntry {
+  eventName: string;
+  payload: object;
+  scope: string;
+  authorId: string;
+}
+
+/**
+ * `EventListener` 接口类，用于监听自定义事件。
+ */
+export interface EventListener {
+  onEvent(event: EventEntry): void
+}
+
+/**
+ * `FrequencyEventListener` 接口类。该类包含你想要注册监听的高频事件回调。
+ */
+export interface FrequencyEventListener {
+  onEvent(events: EventEntry[]): void
+}
+
+/**
+ * 房间连接状态。
+ */
 export enum RoomPhase {
   /**
    * 连接中
@@ -109,35 +180,59 @@ export function toRoomPhase(value: string): RoomPhase | null {
   return phaseKey ? RoomPhase[phaseKey] : null;
 }
 
-export class BroadcastState {
+/**
+ * 视角状态，包含视角为主播模式的用户信息。
+ */
+export interface BroadcastState {
+  mode: ViewMode;
+  broadcasterId: number;
+  broadcasterInformation: RoomMember;
 }
 
-export class RoomState {
-  private memberState: MemberState;
-  private broadcastState: BroadcastState;
+/**
+ * `CameraState` 类，描述视角状态。
+ */
+export interface CameraState {
+  centerX: number;
+  centerY: number;
+  scale: number;
+}
 
-  constructor(memberState: MemberState, broadcastState: BroadcastState) {
-    this.memberState = memberState;
-    this.broadcastState = broadcastState;
-  }
+/**
+ * 房间状态类。
+ */
+export interface RoomState extends SharedState {
+  // 当前的白板工具状态
+  memberState: MemberState;
+
+  // 房间内当前的视角状态
+  broadcastState: BroadcastState;
+}
+
+/**
+ * 为互动白板实时房间和回放房间共有的状态类
+ */
+interface SharedState {
+  roomMembers: RoomMember[];
+  sceneState: SceneState;
+  windowBoxState: string;
+  pageState: PageState;
+  cameraState: CameraState;
+}
+
+/**
+ * 多窗口模式下，主窗口页面状态。
+ */
+export interface PageState {
+  /**
+   * 当前主窗口页面索引
+   */
+  index: number;
 
   /**
-   * 获取互动白板实时房间内当前的白板工具状态。
-   *
-   * @return 白板工具状态，详见 MemberState。
+   * 当前主窗口页面数量
    */
-  getMemberState(): MemberState {
-    return this.memberState;
-  }
-
-  /**
-   * 获取互动白板实时房间内当前的视角状态。
-   *
-   * @return 视角状态，详见 BroadcastState。
-   */
-  getBroadcastState(): BroadcastState {
-    return this.broadcastState;
-  }
+  length: number;
 }
 
 /**
@@ -175,7 +270,7 @@ export enum ViewMode {
 }
 
 /**
- * ImageInformationWithUrl 接口表示图片在白板上的位置信息和 URL 地址。
+ * ImageInformation 接口表示图片在白板上的位置信息和 URL 地址。
  */
 export interface ImageInformation {
   // 图片的中心在世界坐标系中的横向坐标
@@ -275,7 +370,7 @@ export interface PptPage {
 
 
 /**
- * 动画模式。
+ * 移动或缩放视角时的动画模式。
  */
 export enum AnimationMode {
   /**
@@ -372,4 +467,68 @@ export enum WindowPrefersColorScheme {
   Light = "light",
   Dark = "dark",
   Auto = "auto",
+}
+
+export interface WindowAppParam {
+  kind: string;
+  options?: object;
+  attributes?: object;
+}
+
+export interface SlideListener {
+  /**
+   * 拦截 Slide 资源 URL 回调。
+   */
+  slideUrlInterrupter(url: string, complete: (result: string) => void): void;
+
+  /**
+   * Slide 加载错误回调。
+   */
+  onSlideError(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void;
+}
+
+export enum SlideErrorType {
+  /**
+   * ResourceError: 当 PPT 依赖的远程资源（如 JSON、PNG）不可用时触发，
+   * 触发后当前页无法交互。
+   * 恢复手段：重新渲染当前页或者跳转到下一页。
+   */
+  RESOURCE_ERROR = "RESOURCE_ERROR",
+
+  /**
+   * RuntimeError: 未知的异常导致触发，触发后当前页无法交互。
+   * 恢复手段：跳转到下一页。
+   */
+  RUNTIME_ERROR = "RUNTIME_ERROR",
+
+  /**
+   * RuntimeWarn: 动画过程中出现未知的警告，触发后动画当前帧表现异常，
+   * 但不影响下一帧和页面交互。
+   * 恢复手段：无需特殊处理。
+   */
+  RUNTIME_WARN = "RUNTIME_WARN",
+
+  /**
+   * CanvasCrash: 由于内存不足，或者 canvas 被意外移除（在未调用 slide.destroy() 的情况下移除 canvas 元素）
+   * 导致触发，触发后 canvas 元素白屏。
+   * 恢复手段：刷新网页，或者销毁 slide 对象并重新创建。
+   */
+  CANVAS_CRASH = "CANVAS_CRASH",
+
+  /**
+   * 未知错误类型
+   */
+  UNKNOWN = "UNKNOWN"
+}
+
+export enum SlideInvisibleBehavior {
+  /**
+   * 冻结：表示行为为 "frozen"。
+   */
+  Frozen = "frozen",
+
+  /**
+   * 暂停：表示行为为 "pause"。
+   */
+  Pause = "pause"
 }
