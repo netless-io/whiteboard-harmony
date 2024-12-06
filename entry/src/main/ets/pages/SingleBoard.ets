@@ -13,7 +13,7 @@ import {
 
 @Entry
 @Component
-struct Second {
+struct SingleBoard {
   @State writeable: boolean = true
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",

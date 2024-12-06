@@ -90,18 +90,19 @@ export class SdkJsInterface {
   };
   logger = (args: object): void => {
     Logger.info(`WhiteSDK logger: ${args}`);
-    const jsonObject = this.convertToJsonOrNull(args);
-    if (jsonObject) {
-      this.whiteboardCallbacks?.onLogger?.(jsonObject);
-    }
+    this.whiteboardCallbacks?.onLogger?.(args);
   };
   postMessage = (args: object): void => {
     Logger.info(`WhiteSDK postMessage: ${args}`);
-    const jsonObject = this.convertToJsonOrNull(args);
-    if (jsonObject) {
-      this.whiteboardCallbacks?.onMessage?.(jsonObject);
-      this.postMessageCallback?.onMessage(jsonObject);
-      this.slideListener && this.handleSlideEvent(jsonObject as Record<string, Object>);
+    try {
+      if (!args) {
+        return;
+      }
+      this.whiteboardCallbacks?.onMessage?.(args);
+      this.postMessageCallback?.onMessage(args);
+      this.slideListener && this.handleSlideEvent(args as Record<string, Object>);
+    } catch (err) {
+      Logger.error(`WhiteSDK postMessage handle err: Code is ${err.code}, message is ${err.message}`)
     }
   };
   private handleSlideEvent = (jsonObject: Record<string, Object>): void => {

@@ -17,3 +17,9 @@ ohos.permission.INTERNET
 
 ## APIs
 ### 加入房间
+
+### 白板操作
+
+### 视角
+
+### 

@@ -23,8 +23,29 @@ struct Index {
         .height('5%')
         .onClick(() => {
           console.info(`Succeeded in clicking the 'Next' button.`)
-          router.pushUrl({ url: 'pages/Second' }).then(() => {
+          router.pushUrl({ url: 'pages/SingleBoard' }).then(() => {
             console.info('Succeeded in jumping to the second page.')
+          }).catch((err: BusinessError) => {
+            console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
+          })
+        })
+
+        Button() {
+          Text('多窗口测试')
+            .fontSize(30)
+            .fontWeight(FontWeight.Bold)
+        }
+        .type(ButtonType.Capsule)
+        .margin({
+          top: 20
+        })
+        .backgroundColor('#0D9FFB')
+        .width('40%')
+        .height('5%')
+        .onClick(() => {
+          console.info(`Succeeded in clicking the 'Next' button.`)
+          router.pushUrl({ url: 'pages/MultipleBoard' }).then(() => {
+            console.info('Succeeded in jumping to the Windows page.')
           }).catch((err: BusinessError) => {
             console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
           })

@@ -11,6 +11,8 @@ import {
   ShapeType,
   toRoomPhase,
   ViewMode,
+  WindowAppParam,
+  WindowAppSyncAttrs,
   WindowPrefersColorScheme,
 } from './Types';
 import { util } from '@kit.ArkTS';
@@ -482,6 +484,10 @@ export class WhiteboardController {
     this.whiteboard?.callHandler("room.disableWindowOperation", [disable])
   }
 
+  //----------------------------------------------------------------
+  // 以下接口为多窗口开启时生效
+  //----------------------------------------------------------------
+
   /**
    * 设置多窗口显示比例
    *
@@ -499,5 +505,86 @@ export class WhiteboardController {
    */
   setPrefersColorScheme(colorScheme: WindowPrefersColorScheme) {
     this.whiteboard?.callHandler("room.setPrefersColorScheme", [colorScheme])
+  }
+
+  /**
+   * 添加窗口
+   *
+   * @param appParam
+   * @returns appId 唯一窗口ID
+   */
+  addApp(appParam: WindowAppParam): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, appParam.attributes],
+        (result: object) => {
+          if (typeof result === 'string') {
+            resolve(result)
+          } else {
+            reject(new Error("Expected string result, but got a different type"));
+          }
+        })
+    });
+  }
+
+  /**
+   * 关闭窗口
+   * @param appId
+   */
+  closeApp(appId: string): Promise<Boolean> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.closeApp", [appId], (result: object) => {
+        if (typeof result === 'string') {
+          resolve(result)
+        } else {
+          reject(new Error("Expected string result, but got a different type"));
+        }
+      })
+    });
+  }
+
+  /**
+   * 设置多窗口下焦点窗口
+   *
+   * @param appId
+   */
+  focusApp(appId: string) {
+    this.whiteboard?.callHandler("room.focusApp", [appId]);
+  }
+
+  /**
+   * 查询窗口信息
+   *
+   * @param appId
+   */
+  queryApp(appId: string): Promise<WindowAppSyncAttrs> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.queryApp", [appId], (result: object) => {
+        if (typeof result === 'string') {
+          resolve(JSON.parse(result))
+        } else {
+          reject(new Error("Expected string result, but got a different type"));
+        }
+      })
+    });
+  }
+
+  /**
+   * 查询所有窗口信息
+   */
+  queryAllApps(): Promise<Record<string, WindowAppSyncAttrs>> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.queryAllApps", [], (result: object) => {
+        if (typeof result === 'string') {
+          const error = SDKError.promiseError(result)
+          if (error) {
+            reject(error)
+          } else {
+            resolve(JSON.parse(result))
+          }
+        } else {
+          reject(new Error("Expected string result, but got a different type"));
+        }
+      })
+    });
   }
 }

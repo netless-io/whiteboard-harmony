@@ -495,6 +495,14 @@ export interface WindowAppParam {
   attributes?: object;
 }
 
+export interface WindowAppSyncAttrs {
+  kind: string;
+  src: string;
+  options?: object;
+  state?: object;
+  title?: string;
+}
+
 export interface SlideListener {
   /**
    * 拦截 Slide 资源 URL 回调。

@@ -44,10 +44,11 @@ hdc fport ls
 - [ ] 接口同步
     - [ ] MagixEvent
     - [ ] Page
-    - [ ] window apps
+    - [x] window apps
     - [ ] Slide
     - [ ] WindowDocsEvent
     - [ ] SDKError
+    - [ ] CameraBounds
 
 ## 发布
 

@@ -146,7 +146,7 @@ export class DsBridge {
     return false;
   }
 
-  callHandler(method: string, args: Object[] | null, handler?: Callback<object>): void {
+  callHandler(method: string, args: ESObject[] | null, handler?: Callback<object>): void {
     this.dsInitBridge.callHandler(method, args, handler);
   }
 }
@@ -212,7 +212,7 @@ export class DsInitBridge {
       Logger.error("js callback handle error", e);
     }
   };
-  public callHandler = (method: string, args: object[] | null, handler?: Callback<object>): void => {
+  public callHandler = (method: string, args: ESObject[] | null, handler?: Callback<object>): void => {
     const call = new Call(method, ++this.callID, args ?? []);
 
     if (handler) {
