@@ -1,5 +1,6 @@
 import { promptAction, router } from '@kit.ArkUI'
 import {
+  AddPageParam,
   Appliance,
   Region,
   RoomPhase,
@@ -28,19 +29,18 @@ struct MultipleBoard {
   }
   whiteboardController: WhiteboardController = new WhiteboardController();
   callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
-    .setThrowError((args) => console.error('[>> Test] Error:', args))
-    .setOnLogger((args) => console.log('[>> Test] Logger:', args))
+    .setThrowError((args) => console.error('[Whiteboard] Error:', args))
+    .setOnLogger((args) => console.log('[Whiteboard] Logger:', args))
     .setOnRoomPhaseChanged((roomPhase) => {
       console.log('[Whiteboard] Room phase changed:', roomPhase)
       this.showToast(`room phase ${roomPhase}`)
-      if (roomPhase == RoomPhase.CONNECTED) {
-        const isWritable = this.whiteboardController.getWritable()
-        if (isWritable) {
-
-        }
-      }
     })
-    .setOnRoomStateChanged((roomState) => console.log('[>> Test] Room state changed:', JSON.stringify(roomState)));
+    .setOnRoomReady(() => {
+      // 此时房间状态有效，如果需要在加入房间时候操作，在此处处理
+    })
+    .setOnRoomStateChanged((roomState) => {
+      console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState))
+    })
   colorIndex = -1
   colors: string[] = [
     '#F5655C',
@@ -53,7 +53,7 @@ struct MultipleBoard {
     [Appliance.PENCIL, null],
     [Appliance.SELECTOR, null],
     [Appliance.RECTANGLE, null],
-    [Appliance.SHAPE, ShapeType.Rhombus],
+    [Appliance.SHAPE, ShapeType.RHOMBUS],
     [Appliance.ERASER, null],
     [Appliance.TEXT, null],
   ]
@@ -160,6 +160,27 @@ struct MultipleBoard {
             console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
           }
         })
+
+        TestButton("AddPage", async () => {
+          // 默认在插入到最后页面，使用 { after: true } 插入到当前页面后
+          this.whiteboardController.addPage({ after: true })
+
+          //不主动切换页面，需要调用页面变更
+          this.whiteboardController.nextPage()
+        })
+
+        TestButton("RemovePage", async () => {
+          this.whiteboardController.removePage()
+        })
+
+        TestButton("PrevPage", async () => {
+          this.whiteboardController.prevPage()
+        })
+
+        TestButton("NextPage", async () => {
+          this.whiteboardController.nextPage()
+        })
+
       }.margin({ top: 20 }) // Flex
     }
   }

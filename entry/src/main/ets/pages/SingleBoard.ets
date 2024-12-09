@@ -1,14 +1,13 @@
 import { promptAction, router } from '@kit.ArkUI'
 import {
   Appliance,
+  Region,
   RoomPhase,
   ShapeType,
   Whiteboard,
   WhiteboardCallbacks,
   WhiteboardController,
-  WhiteboardOptions,
-  VERSION as WhiteboardVersion,
-  Region
+  WhiteboardOptions
 } from '@shengwang/whiteboard'
 
 @Entry
@@ -24,19 +23,17 @@ struct SingleBoard {
   }
   whiteboardController: WhiteboardController = new WhiteboardController();
   callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
-    .setThrowError((args) => console.error('[>> Test] Error:', args))
-    .setOnLogger((args) => console.log('[>> Test] Logger:', args))
+    .setThrowError((args) => console.error('[Whiteboard] Error:', args))
+    .setOnLogger((args) => console.log('[Whiteboard] Logger:', args))
     .setOnRoomPhaseChanged((roomPhase) => {
       console.log('[Whiteboard] Room phase changed:', roomPhase)
       this.showToast(`room phase ${roomPhase}`)
-      if (roomPhase == RoomPhase.CONNECTED) {
-        const isWritable = this.whiteboardController.getWritable()
-        if (isWritable) {
-
-        }
-      }
     })
-    .setOnRoomStateChanged((roomState) => console.log('[>> Test] Room state changed:', JSON.stringify(roomState)));
+    .setOnRoomReady(() => {
+      // 此时房间状态有效，如果需要在加入房间时候操作，在此处处理
+    })
+    .setOnRoomStateChanged((roomState) => console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState)))
+
   colorIndex = -1
   colors: string[] = [
     '#F5655C',
@@ -49,7 +46,7 @@ struct SingleBoard {
     [Appliance.PENCIL, null],
     [Appliance.SELECTOR, null],
     [Appliance.RECTANGLE, null],
-    [Appliance.SHAPE, ShapeType.Rhombus],
+    [Appliance.SHAPE, ShapeType.RHOMBUS],
     [Appliance.ERASER, null],
     [Appliance.TEXT, null],
   ]

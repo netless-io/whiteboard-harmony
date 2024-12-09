@@ -14,6 +14,8 @@ import {
   WindowAppParam,
   WindowAppSyncAttrs,
   WindowPrefersColorScheme,
+  AddPageParam,
+  RemovePageParam,
 } from './Types';
 import { util } from '@kit.ArkTS';
 import { SDKError } from './JsInterfaces';
@@ -585,6 +587,53 @@ export class WhiteboardController {
           reject(new Error("Expected string result, but got a different type"));
         }
       })
+    });
+  }
+
+  /**
+   * 添加新页面
+   *
+   * 添加页面之后不自动切换，需要调用`setSceneIndex`或者 `nextPage` 切换页面
+   */
+  addPage(param: AddPageParam = {}) {
+    this.whiteboard?.callHandler("room.addPage", [param])
+  }
+
+
+  /**
+   * 删除当前场景集指定页面，多窗口下限定为主白板场景集下页面
+   */
+  removePage(param: RemovePageParam = {}) {
+    this.whiteboard?.callHandler("room.removePage", [param])
+  }
+
+  /**
+   * 切换到下一个页面
+   */
+  nextPage(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.nextPage", [], (result: object) => {
+        if (typeof result === 'boolean') {
+          resolve(result);
+        } else {
+          reject(new Error("Expected boolean result, but got a different type"));
+        }
+      });
+    });
+  }
+
+  /**
+   * 切换到上一个页面
+   */
+  prevPage(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.whiteboard?.callHandler("room.prevPage", [], (result: object) => {
+        if (typeof result === 'boolean') {
+          resolve(result);
+        } else {
+          reject(new Error("Expected boolean result, but got a different type"));
+        }
+      });
     });
   }
 }

@@ -6,7 +6,9 @@ export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
 export { WhiteboardOptions } from "./src/main/ets/WhiteboardOptions"
 
-export { Appliance,
+export {
+  Region,
+  Appliance,
   ShapeType,
   MemberState,
   RoomMember,
@@ -14,9 +16,10 @@ export { Appliance,
   RoomState,
   Scene,
   PptPage,
-  Region,
   WindowAppParam,
   WindowAppSyncAttrs,
+  AddPageParam,
+  RemovePageParam,
 } from "./src/main/ets/Types"
 
 export const VERSION = "0.1.0-alpha01";

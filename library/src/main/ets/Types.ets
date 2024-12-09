@@ -97,42 +97,97 @@ export interface RoomMember {
  * 白板工具名称。
  */
 export enum Appliance {
+  /**
+   * 铅笔工具，用于绘制自由线条。
+   */
   PENCIL = "pencil",
+
+  /**
+   * 选择工具，用于选择和移动对象。
+   */
   SELECTOR = "selector",
+
+  /**
+   * 矩形工具，用于绘制矩形。
+   */
   RECTANGLE = "rectangle",
+
+  /**
+   * 椭圆工具，用于绘制椭圆。
+   */
   ELLIPSE = "ellipse",
+
+  /**
+   * 橡皮擦工具，用于擦除内容。
+   */
   ERASER = "eraser",
+
+  /**
+   * 文本工具，用于添加文本。
+   */
   TEXT = "text",
+
+  /**
+   * 直线工具，用于绘制直线。
+   */
   STRAIGHT = "straight",
+
+  /**
+   * 箭头工具，用于绘制箭头。
+   */
   ARROW = "arrow",
+
+  /**
+   * 手形工具，用于拖动视图或进行其他交互。
+   */
   HAND = "hand",
+
+  /**
+   * 激光笔工具，用于高亮标记。
+   */
   LASER_POINTER = "laserPointer",
+
+  /**
+   * 点击器工具，用于模拟点击操作。
+   */
   CLICKER = "clicker",
+
+  /**
+   * 形状工具，用于绘制各种形状。
+   */
   SHAPE = "shape",
+
+  /**
+   * 铅笔橡皮擦工具，用于擦除铅笔绘制的内容。
+   */
   PENCIL_ERASER = "pencilEraser",
+
+  /**
+   * 激光铅笔工具，用于绘制类似激光笔的效果。
+   */
   LASER_PENCIL = "laserPen",
 }
 
 /**
- * 图形工具扩展，教具 Appliance 设置成 Shape 时配置
+ * 图形工具扩展，教具 APPLIANCE 设置成 SHAPE 时配置
  */
 export enum ShapeType {
   /**
-   * `Triangle`：（默认）三角形。
+   * `TRIANGLE`：（默认）三角形。
    */
-  Triangle = "triangle",
+  TRIANGLE = "triangle",
   /**
-   * `Rhombus`：菱形。
+   * `RHOMBUS`：菱形。
    */
-  Rhombus = "rhombus",
+  RHOMBUS = "rhombus",
   /**
-   * `Pentagram`：五角星。
+   * `PENTAGRAM`：五角星。
    */
-  Pentagram = "pentagram",
+  PENTAGRAM = "pentagram",
   /**
-   * `SpeechBalloon`：对话气泡。
+   * `SPEECH_BALLOON`：对话气泡。
    */
-  SpeechBalloon = "speechBalloon",
+  SPEECH_BALLOON = "speechBalloon",
 }
 
 /** `AkkoEvent` 类，用于设置自定义事件。 */
@@ -501,6 +556,15 @@ export interface WindowAppSyncAttrs {
   options?: object;
   state?: object;
   title?: string;
+}
+
+export interface AddPageParam {
+  after?: boolean;  // 可选属性，表示是否在后面添加
+  scene?: Scene;    // 可选属性，表示场景对象
+}
+
+export interface RemovePageParam {
+  index?: number
 }
 
 export interface SlideListener {
