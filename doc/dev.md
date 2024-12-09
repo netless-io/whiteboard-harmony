@@ -32,20 +32,19 @@ hdc fport ls
 ```
 
 ## 任务项目
-
-- [ ] 测试 WindowApp 注册，添加 App
 - [x] 添加 WebView 合理配置
 - [ ] 文档补全
-    - [ ] README
+    - [X] README
     - [ ] QuickStart
     - [ ] API
     - [ ] Recipes
     - [ ] Common Whiteboard Reference
 - [ ] 接口同步
     - [ ] MagixEvent
-    - [ ] Page
-    - [x] window apps
-    - [ ] Slide
+    - [X] Page
+    - [x] WindowApp
+    - [ ] ~~WindowApp 注册~~
+    - [ ] Slide Listeners
     - [ ] WindowDocsEvent
     - [ ] SDKError
     - [ ] CameraBounds
