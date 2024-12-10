@@ -22,4 +22,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.1.0-alpha01";
+export const VERSION = "0.1.0";

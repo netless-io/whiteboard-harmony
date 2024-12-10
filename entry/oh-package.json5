@@ -6,7 +6,8 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@shengwang/whiteboard": "file:../library"
+    "@shengwang/whiteboard": "file:../library",
+    // "@shengwang/whiteboard": "^0.1.0"
   }
 }
 

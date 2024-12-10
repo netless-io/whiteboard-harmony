@@ -1,6 +1,6 @@
 {
   "name": "@shengwang/whiteboard",
-  "version": "0.1.0-alpha01",
+  "version": "0.1.0",
   "description": "an agora whiteboard library for harmony",
   "main": "Index.ets",
   "author": "fenglibin",

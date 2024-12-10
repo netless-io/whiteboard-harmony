@@ -22,7 +22,7 @@ Cutting a Release
     ```
 4. Tag the release and push to GitHub.
    ```shell
-   git commit -am "Prepare for release $RELEASE_VERSION"
+   git commit -am "release $RELEASE_VERSION"
    git tag -a $RELEASE_VERSION -m "Version $RELEASE_VERSION"
    git push && git push --tags
    ```
