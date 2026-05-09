@@ -1,0 +1,10 @@
+.hvigor/
+.test/
+**/.test/
+.idea/
+oh_modules/
+**/oh_modules/
+build/
+**/build/
+library/BuildProfile.ets
+.DS_Store

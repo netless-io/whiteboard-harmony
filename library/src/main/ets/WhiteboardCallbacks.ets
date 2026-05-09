@@ -1,4 +1,10 @@
-import { RoomPhase, RoomState } from './Types';
+import {
+  EventEntry,
+  RoomDisconnectError,
+  RoomKickedReason,
+  RoomPhase,
+  RoomState,
+} from './Types';
 
 export class WhiteboardCallbacks {
   /**
@@ -47,6 +53,30 @@ export class WhiteboardCallbacks {
    * @param steps 当前可重做的步骤数
    */
   onCanRedoStepsUpdate?: (steps: number) => void;
+
+  /**
+   * 自定义事件回调函数。
+   * @param event 自定义事件
+   */
+  onMagixEvent?: (event: EventEntry) => void;
+
+  /**
+   * 高频事件回调函数。
+   * @param events 高频事件列表
+   */
+  onHighFrequencyEvent?: (events: EventEntry[]) => void;
+
+  /**
+   * 房间断连错误回调函数。
+   * @param error 断连错误
+   */
+  onDisconnectWithError?: (error: RoomDisconnectError) => void;
+
+  /**
+   * 被踢下线回调函数。
+   * @param reason 原因
+   */
+  onKickedWithReason?: (reason: RoomKickedReason) => void;
 
   /**
    * 设置错误回调函数。
@@ -113,8 +143,48 @@ export class WhiteboardCallbacks {
    * @param callback 可重做步骤更新的回调函数
    * @returns 当前的 WhiteboardCallbacks 实例
    */
-  onOnCanRedoStepsUpdate(callback: (steps: number) => void): WhiteboardCallbacks {
+  setOnCanRedoStepsChanged(callback: (steps: number) => void): WhiteboardCallbacks {
     this.onCanRedoStepsUpdate = callback;
+    return this;
+  }
+
+  /**
+   * 设置自定义事件回调函数。
+   * @param callback 自定义事件回调函数
+   * @returns 当前的 WhiteboardCallbacks 实例
+   */
+  setOnMagixEvent(callback: (event: EventEntry) => void): WhiteboardCallbacks {
+    this.onMagixEvent = callback;
+    return this;
+  }
+
+  /**
+   * 设置高频事件回调函数。
+   * @param callback 高频事件回调函数
+   * @returns 当前的 WhiteboardCallbacks 实例
+   */
+  setOnHighFrequencyEvent(callback: (events: EventEntry[]) => void): WhiteboardCallbacks {
+    this.onHighFrequencyEvent = callback;
+    return this;
+  }
+
+  /**
+   * 设置房间断连错误回调函数。
+   * @param callback 房间断连错误回调函数
+   * @returns 当前的 WhiteboardCallbacks 实例
+   */
+  setOnDisconnectWithError(callback: (error: RoomDisconnectError) => void): WhiteboardCallbacks {
+    this.onDisconnectWithError = callback;
+    return this;
+  }
+
+  /**
+   * 设置被踢下线回调函数。
+   * @param callback 被踢下线回调函数
+   * @returns 当前的 WhiteboardCallbacks 实例
+   */
+  setOnKickedWithReason(callback: (reason: RoomKickedReason) => void): WhiteboardCallbacks {
+    this.onKickedWithReason = callback;
     return this;
   }
 }

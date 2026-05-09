@@ -17,8 +17,7 @@ Cutting a Release
     ```
 3. Update versions:
    ```shell
-   sed -i "" "s/\"version\": \".*\"/\"version\": \"$RELEASE_VERSION\"/" library/oh-package.json5
-   sed -i "" "s/export const VERSION = \".*\";/export const VERSION = \"$RELEASE_VERSION\";/" library/Index.ets
+   bash scripts/publish-package.sh prepare-version "$RELEASE_VERSION"
     ```
 4. Tag the release and push to GitHub.
    ```shell
@@ -29,9 +28,28 @@ Cutting a Release
 
 5. Publish pub
    ```shell
-   # 编译
-   hvigorw --mode module -p product=default -p module=library@default assembleHar --analyze=normal --parallel --incremental --daemon
-   
-   # 发布
-   ohpm publish library/build/default/outputs/default/library.har
+   bash scripts/publish-package.sh publish "$RELEASE_VERSION"
    ```
+
+Publishing a Prerelease
+-----------------------
+
+Use semantic prerelease versions for test packages, for example `0.2.0-alpha.1`.
+
+1. Prepare the prerelease version locally:
+   ```shell
+   export PRERELEASE_VERSION=0.2.0-alpha.1
+   bash scripts/publish-package.sh prepare-version "$PRERELEASE_VERSION"
+   ```
+2. Build and publish the test package:
+   ```shell
+   bash scripts/publish-package.sh publish "$PRERELEASE_VERSION"
+   ```
+3. Or trigger the GitHub Actions workflow `Publish Prerelease Package` and pass `0.2.0-alpha.1`.
+
+Notes
+-----
+
+- `scripts/publish-package.sh` validates that the package name follows the ArkTS scoped naming style, such as `@shengwang/whiteboard`.
+- Test packages and stable packages share the same ArkTS package name. They are distinguished by the semantic version suffix, for example `0.2.0-alpha.1`.
+- The GitHub Actions workflow expects a self-hosted runner with HarmonyOS build tools installed, plus `HVIGORW_BIN` and `OHPM_BIN` secrets that point to the actual command paths.

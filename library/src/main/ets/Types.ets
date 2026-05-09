@@ -221,6 +221,18 @@ export interface FrequencyEventListener {
 }
 
 /**
+ * 房间断连错误。
+ */
+export interface RoomDisconnectError {
+  message: string;
+}
+
+/**
+ * 被踢下线原因。
+ */
+export type RoomKickedReason = string;
+
+/**
  * 房间连接状态。
  */
 export enum RoomPhase {
@@ -251,17 +263,29 @@ export enum RoomPhase {
 }
 
 export function toRoomPhase(value: string): RoomPhase | null {
-  const phaseKey = Object.keys(RoomPhase).find(key => RoomPhase[key] === value);
-  return phaseKey ? RoomPhase[phaseKey] : null;
+  switch (value) {
+    case RoomPhase.CONNECTING:
+      return RoomPhase.CONNECTING;
+    case RoomPhase.CONNECTED:
+      return RoomPhase.CONNECTED;
+    case RoomPhase.RECONNECTING:
+      return RoomPhase.RECONNECTING;
+    case RoomPhase.DISCONNECTING:
+      return RoomPhase.DISCONNECTING;
+    case RoomPhase.DISCONNECTED:
+      return RoomPhase.DISCONNECTED;
+    default:
+      return null;
+  }
 }
 
 /**
  * 视角状态，包含视角为主播模式的用户信息。
  */
 export interface BroadcastState {
-  mode: ViewMode;
-  broadcasterId: number;
-  broadcasterInformation: RoomMember;
+  mode?: ViewMode;
+  broadcasterId?: number;
+  broadcasterInformation?: RoomMember;
 }
 
 /**
@@ -278,22 +302,30 @@ export interface CameraState {
  */
 export interface RoomState extends SharedState {
   // 当前的白板工具状态
-  memberState: MemberState;
+  memberState?: MemberState;
 
   // 房间内当前的视角状态
-  broadcastState: BroadcastState;
+  broadcastState?: BroadcastState;
+
+  // 房间公共全局状态
+  globalState?: GlobalState;
 }
 
 /**
  * 为互动白板实时房间和回放房间共有的状态类
  */
 interface SharedState {
-  roomMembers: RoomMember[];
-  sceneState: SceneState;
-  windowBoxState: string;
-  pageState: PageState;
-  cameraState: CameraState;
+  roomMembers?: RoomMember[];
+  sceneState?: SceneState;
+  windowBoxState?: object;
+  pageState?: PageState;
+  cameraState?: CameraState;
 }
+
+/**
+ * 房间公共全局状态。
+ */
+export class GlobalState {}
 
 /**
  * 多窗口模式下，主窗口页面状态。
@@ -558,6 +590,17 @@ export interface WindowAppSyncAttrs {
   title?: string;
 }
 
+/**
+ * 视角边界配置。
+ */
+export interface CameraBound {
+  centerX: number;
+  centerY: number;
+  width: number;
+  height: number;
+  damping?: number;
+}
+
 export interface AddPageParam {
   after?: boolean;  // 可选属性，表示是否在后面添加
   scene?: Scene;    // 可选属性，表示场景对象
@@ -565,6 +608,22 @@ export interface AddPageParam {
 
 export interface RemovePageParam {
   index?: number
+}
+
+export type WindowDocsEventType =
+  | "prevPage"
+  | "nextPage"
+  | "prevStep"
+  | "nextStep"
+  | "jumpToPage";
+
+export interface WindowDocsEventOptions {
+  pageIndex?: number;
+}
+
+export interface WindowDocsEvent {
+  event: WindowDocsEventType;
+  options?: WindowDocsEventOptions;
 }
 
 export interface SlideListener {

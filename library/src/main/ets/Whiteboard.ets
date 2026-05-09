@@ -6,6 +6,7 @@ import { DsBridge } from './DsBridge';
 import { RoomJsInterface, SDKError, SdkJsInterface } from './JsInterfaces';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 import { Logger } from './Logger';
+import { buildRoomOptions } from './WhiteboardJoinOptions';
 
 @Component
 export struct Whiteboard {
@@ -90,19 +91,12 @@ export struct Whiteboard {
           }
           this.dsBridge.callHandler("sdk.newWhiteSdk", [sdkOptions]);
 
-          let roomOptions: RoomOptions = {
-            uuid: this.options.roomUuid,
-            roomToken: this.options.roomToken,
-            region: this.options.region,
-            uid: this.options.uid,
-            isWritable: true,
-            windowParams: this.options.windowParams
-          }
+          let roomOptions: RoomOptions = buildRoomOptions(this.options)
           this.dsBridge.callHandler("sdk.joinRoom", [roomOptions], (result: object) => {
             interface JoinRoomResult {
               state: object,
               observerId: number,
-              isWritable: true,
+              isWritable: boolean,
             }
 
             if (typeof result === 'string') {
@@ -112,6 +106,7 @@ export struct Whiteboard {
               } else {
                 const resultObj: JoinRoomResult = JSON.parse(result)
                 Logger.info(`join room successfully ${resultObj.state}`)
+                this.controller.setInitialWritable(resultObj.isWritable)
                 this.callbacks.onRoomReady?.()
               }
             } else {

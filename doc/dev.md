@@ -9,6 +9,9 @@
 
 1. build ->
 2. ohpm install
+   a. ohpm install @shengwang/whiteboard@0.2.0
+   b. ohpm install ../library
+
 
 ## ArtTS
 
@@ -53,7 +56,7 @@ hdc fport ls
 
 前置条件生成
 
-* keygen
+* keygen (需要配置 passphrase)
 * 发布码
 
 [发布共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V13/ide-har-publish-V13)

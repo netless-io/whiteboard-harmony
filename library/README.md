@@ -50,6 +50,15 @@ struct Demo {
 setWritable(writable: boolean): Promise<boolean>
 ```
 
+### **获取房间状态相关数据**
+
+- `getRoomState(): Promise<RoomState>`
+- `getRoomPhase(): Promise<RoomPhase>`
+- `getRoomMembers(): Promise<RoomMember[]>`
+- `getMemberState(): Promise<MemberState>`
+- `getGlobalState(): Promise<GlobalState>`
+- `getBroadcastState(): Promise<BroadcastState>`
+
 ### **设置教具**
 
 `setAppliance(appliance: Appliance, shapeType?: ShapeType)`
@@ -99,6 +108,7 @@ setViewMode(viewMode: ViewMode): void
 3. `focusApp`
 4. `queryApp`
 5. `queryAllApps`
+6. `dispatchDocsEvent`
 
 ### Page
 
@@ -108,6 +118,10 @@ setViewMode(viewMode: ViewMode): void
 4. `nextPage`
 
 ### 其他
+
+- `insertText`
+- `updateText`
+- `setSyncMode`
 
 更多参考官方文档
 

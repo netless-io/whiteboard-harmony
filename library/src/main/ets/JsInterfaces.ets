@@ -1,5 +1,13 @@
 import { Logger } from './Logger';
-import { AkkoEvent, SlideErrorType, SlideListener, toRoomPhase } from './Types';
+import {
+  EventEntry,
+  RoomDisconnectError,
+  RoomKickedReason,
+  RoomState,
+  SlideErrorType,
+  SlideListener,
+  toRoomPhase,
+} from './Types';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 interface PostMessageCallback {
@@ -17,6 +25,15 @@ interface JSRespError {
 
 class JsResponse {
   __error?: JSRespError
+}
+
+function parseJsonOrNull<T>(input: string): T | null {
+  try {
+    return JSON.parse(input) as T;
+  } catch (error) {
+    Logger.error("parse json failed", error);
+    return null;
+  }
 }
 
 export class SDKError extends Error {
@@ -178,11 +195,17 @@ export class RoomJsInterface {
   };
   fireMagixEvent = (args: string): void => {
     Logger.info(`fireMagixEvent ${args}`);
-    const event: AkkoEvent = JSON.parse(args);
+    const event: EventEntry | null = parseJsonOrNull<EventEntry>(args);
+    if (event) {
+      this.callbacks?.onMagixEvent?.(event);
+    }
   };
   fireHighFrequencyEvent = (args: string): void => {
     Logger.info(`fireHighFrequencyEvent ${args}`);
-    const events: AkkoEvent[] = JSON.parse(String(args));
+    const events: EventEntry[] | null = parseJsonOrNull<EventEntry[]>(String(args));
+    if (events) {
+      this.callbacks?.onHighFrequencyEvent?.(events);
+    }
   };
   firePhaseChanged = (args: string): void => {
     Logger.info("Phase changed " + args);
@@ -195,13 +218,18 @@ export class RoomJsInterface {
   };
   fireKickedWithReason = (args: string): void => {
     Logger.info("fireKickedWithReason " + args);
+    this.callbacks?.onKickedWithReason?.(args as RoomKickedReason);
   };
   fireDisconnectWithError = (args: string): void => {
     Logger.info("fireDisconnectWithError " + args);
+    this.callbacks?.onDisconnectWithError?.({ message: args } as RoomDisconnectError);
   };
   fireRoomStateChanged = (state: string): void => {
     Logger.info("room state changed from " + state);
-    this.callbacks?.onRoomStateChanged?.(JSON.parse(state));
+    const roomState: RoomState | null = parseJsonOrNull<RoomState>(state);
+    if (roomState) {
+      this.callbacks?.onRoomStateChanged?.(roomState);
+    }
   };
   fireCatchErrorWhenAppendFrame = (args: string): void => {
     Logger.info("room fireCatchErrorWhenAppendFrame " + args);

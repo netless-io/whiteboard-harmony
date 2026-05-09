@@ -15,6 +15,11 @@ export interface WhiteboardOptions {
   uid: string;
   region: Region;
   writable?: boolean;
+  disableCameraTransform?: boolean;
+  disableDeviceInputs?: boolean;
+  disableOperations?: boolean;
+  floatBar?: boolean;
+  timeout?: number;
   callbacks?: WhiteboardCallbacks;
 }
 
@@ -32,7 +37,9 @@ export interface RoomOptions {
   roomToken: string;
   uid: string;
   region: Region;
+  userPayload?: object;
   isWritable?: boolean;
+  disableDeviceInputs?: boolean;
   disableOperations?: boolean;
   floatBar?: boolean;
   disableCameraTransform?: boolean;

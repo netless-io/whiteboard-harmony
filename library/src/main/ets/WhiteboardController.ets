@@ -2,15 +2,19 @@ import { DsBridge } from './DsBridge';
 import {
   AnimationMode,
   Appliance,
+  BroadcastState,
+  GlobalState,
   ImageInformation,
   MemberState,
   RoomMember,
   RoomPhase,
   RoomState,
+  Scene,
   SceneState,
   ShapeType,
   toRoomPhase,
   ViewMode,
+  WindowDocsEvent,
   WindowAppParam,
   WindowAppSyncAttrs,
   WindowPrefersColorScheme,
@@ -24,11 +28,42 @@ import { ColorMetrics } from '@kit.ArkUI';
 export class WhiteboardController {
   private whiteboard?: DsBridge
   private writable = false
+
+  setInitialWritable(writable: boolean): void {
+    this.writable = writable
+  }
+
   attachWhiteboard = (whiteboard: DsBridge) => {
     this.whiteboard = whiteboard
   }
   detachWhiteboard = (whiteboard: DsBridge) => {
     this.whiteboard = undefined
+  }
+
+  private rejectOnBridgeMissing(reject: (reason: Error) => void): boolean {
+    if (!this.whiteboard) {
+      reject(new Error("Whiteboard is not attached"));
+      return true;
+    }
+    return false;
+  }
+
+  private parseJsonResult<T>(result: object | string | boolean | undefined, reject: (reason: Error) => void): T | null {
+    if (typeof result !== 'string') {
+      reject(new Error("Expected string result, but got a different type"));
+      return null;
+    }
+    const sdkError = SDKError.promiseError(result);
+    if (sdkError) {
+      reject(new Error(sdkError.toString()));
+      return null;
+    }
+    try {
+      return JSON.parse(result) as T;
+    } catch (error) {
+      reject(error as Error);
+      return null;
+    }
   }
 
   /**
@@ -48,16 +83,15 @@ export class WhiteboardController {
       observerId: string
     }
 
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.setWritable", [writable], (result: object) => {
-        if (typeof result !== 'string') {
-          return reject(new Error("Expected string result, but got a different type"));
+    return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.setWritable", [writable], (result: object | string | boolean | undefined) => {
+        const resultObj = this.parseJsonResult<WritableResult>(result, reject);
+        if (!resultObj) {
+          return;
         }
-        const sdkError = SDKError.promiseError(result);
-        if (sdkError) {
-          reject(sdkError)
-        }
-        const resultObj: WritableResult = JSON.parse(result);
         this.writable = resultObj.isWritable;
         resolve(resultObj.isWritable)
       });
@@ -211,12 +245,14 @@ export class WhiteboardController {
    * 主动断开与互动白板实时房间实例的连接。
    */
   disconnect(): Promise<object> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.disconnect", [], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected boolean result, but got a different type"));
+    return new Promise<object>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.disconnect", [], (result: object | string | boolean | undefined) => {
+        const disconnectResult = this.parseJsonResult<object>(result, reject);
+        if (disconnectResult) {
+          resolve(disconnectResult)
         }
       });
     });
@@ -238,12 +274,14 @@ export class WhiteboardController {
    * 获取房间的所有状态。
    */
   getRoomState(): Promise<RoomState> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.state.getRoomState", [], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<RoomState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.state.getRoomState", [], (result: object | string | boolean | undefined) => {
+        const roomState = this.parseJsonResult<RoomState>(result, reject);
+        if (roomState) {
+          resolve(roomState)
         }
       });
     });
@@ -253,8 +291,8 @@ export class WhiteboardController {
    * 获取房间的连接状态。
    */
   getRoomPhase(): Promise<RoomPhase> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.getRoomPhase", [], (result: object) => {
+    return new Promise<RoomPhase>((resolve, reject) => {
+      this.whiteboard?.callHandler("room.getRoomPhase", [], (result: object | string | boolean | undefined) => {
         if (typeof result === 'string') {
           const phase = toRoomPhase(result)
           if (phase) {
@@ -278,12 +316,65 @@ export class WhiteboardController {
    * @return 用户列表
    */
   getRoomMembers(): Promise<RoomMember[]> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.getRoomMembers", [], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<RoomMember[]>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getRoomMembers", [], (result: object | string | boolean | undefined) => {
+        const roomMembers = this.parseJsonResult<RoomMember[]>(result, reject);
+        if (roomMembers) {
+          resolve(roomMembers)
+        }
+      });
+    });
+  }
+
+  /**
+   * 获取房间内白板工具状态。
+   */
+  getMemberState(): Promise<MemberState> {
+    return new Promise<MemberState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getMemberState", [], (result: object | string | boolean | undefined) => {
+        const memberState = this.parseJsonResult<MemberState>(result, reject);
+        if (memberState) {
+          resolve(memberState)
+        }
+      });
+    });
+  }
+
+  /**
+   * 获取房间公共全局状态。
+   */
+  getGlobalState(): Promise<GlobalState> {
+    return new Promise<GlobalState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getGlobalState", [], (result: object | string | boolean | undefined) => {
+        const globalState = this.parseJsonResult<GlobalState>(result, reject);
+        if (globalState) {
+          resolve(globalState)
+        }
+      });
+    });
+  }
+
+  /**
+   * 获取当前房间视角状态。
+   */
+  getBroadcastState(): Promise<BroadcastState> {
+    return new Promise<BroadcastState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getBroadcastState", [], (result: object | string | boolean | undefined) => {
+        const broadcastState = this.parseJsonResult<BroadcastState>(result, reject);
+        if (broadcastState) {
+          resolve(broadcastState)
         }
       });
     });
@@ -305,12 +396,14 @@ export class WhiteboardController {
    *
    */
   getSceneState(): Promise<SceneState> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.getSceneState", [], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<SceneState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getSceneState", [], (result: object | string | boolean | undefined) => {
+        const sceneState = this.parseJsonResult<SceneState>(result, reject);
+        if (sceneState) {
+          resolve(sceneState)
         }
       });
     });
@@ -324,12 +417,14 @@ export class WhiteboardController {
    *                - 如果方法调用失败，将返回错误信息。
    */
   getEntireScenes(): Promise<Record<string, Scene[]>> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("displayer.entireScenes", [], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<Record<string, Scene[]>>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("displayer.entireScenes", [], (result: object | string | boolean | undefined) => {
+        const entireScenes = this.parseJsonResult<Record<string, Scene[]>>(result, reject);
+        if (entireScenes) {
+          resolve(entireScenes)
         }
       });
     });
@@ -340,8 +435,8 @@ export class WhiteboardController {
    * 方法调用成功后，房间内的所有用户看到的白板都会切换到指定场景。
    */
   setScenePath(path: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.setScenePath", [path], (result: object) => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.whiteboard?.callHandler("room.setScenePath", [path], (result: object | string | boolean | undefined) => {
         if (typeof result === 'string') {
           const error = SDKError.promiseError(result)
           if (error) {
@@ -368,8 +463,8 @@ export class WhiteboardController {
    *   - 如果方法调用失败，则抛出错误信息。
    */
   setSceneIndex(index: number): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.setSceneIndex", [index], (result: object) => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.whiteboard?.callHandler("room.setSceneIndex", [index], (result: object | string | boolean | undefined) => {
         if (typeof result === 'string') {
           const error = SDKError.promiseError(result)
           if (error) {
@@ -516,9 +611,9 @@ export class WhiteboardController {
    * @returns appId 唯一窗口ID
    */
   addApp(appParam: WindowAppParam): Promise<string> {
-    return new Promise((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, appParam.attributes],
-        (result: object) => {
+        (result: object | string | boolean | undefined) => {
           if (typeof result === 'string') {
             resolve(result)
           } else {
@@ -532,14 +627,13 @@ export class WhiteboardController {
    * 关闭窗口
    * @param appId
    */
-  closeApp(appId: string): Promise<Boolean> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.closeApp", [appId], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(result)
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
-        }
+  closeApp(appId: string): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.closeApp", [appId], (result: object | string | boolean | undefined) => {
+        resolve(true)
       })
     });
   }
@@ -559,12 +653,14 @@ export class WhiteboardController {
    * @param appId
    */
   queryApp(appId: string): Promise<WindowAppSyncAttrs> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.queryApp", [appId], (result: object) => {
-        if (typeof result === 'string') {
-          resolve(JSON.parse(result))
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<WindowAppSyncAttrs>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.queryApp", [appId], (result: object | string | boolean | undefined) => {
+        const appInfo = this.parseJsonResult<WindowAppSyncAttrs>(result, reject);
+        if (appInfo) {
+          resolve(appInfo)
         }
       })
     });
@@ -574,17 +670,14 @@ export class WhiteboardController {
    * 查询所有窗口信息
    */
   queryAllApps(): Promise<Record<string, WindowAppSyncAttrs>> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.queryAllApps", [], (result: object) => {
-        if (typeof result === 'string') {
-          const error = SDKError.promiseError(result)
-          if (error) {
-            reject(error)
-          } else {
-            resolve(JSON.parse(result))
-          }
-        } else {
-          reject(new Error("Expected string result, but got a different type"));
+    return new Promise<Record<string, WindowAppSyncAttrs>>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.queryAllApps", [], (result: object | string | boolean | undefined) => {
+        const appMap = this.parseJsonResult<Record<string, WindowAppSyncAttrs>>(result, reject);
+        if (appMap) {
+          resolve(appMap)
         }
       })
     });
@@ -608,11 +701,61 @@ export class WhiteboardController {
   }
 
   /**
+   * 在指定位置插入文字。
+   */
+  insertText(x: number, y: number, text: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.insertText", [x, y, text], (result: object | string | boolean | undefined) => {
+        if (typeof result === 'string') {
+          resolve(result);
+        } else {
+          reject(new Error("Expected string result, but got a different type"));
+        }
+      });
+    });
+  }
+
+  /**
+   * 更新指定文字内容。
+   */
+  updateText(identifier: string, text: string): void {
+    this.whiteboard?.callHandler("room.updateText", [identifier, text]);
+  }
+
+  /**
+   * 控制多窗口文档翻页或步进。
+   */
+  dispatchDocsEvent(event: WindowDocsEvent): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.dispatchDocsEvent", [event.event, event.options ?? {}], (result: object | string | boolean | undefined) => {
+        if (typeof result === 'boolean') {
+          resolve(result);
+        } else {
+          reject(new Error("Expected boolean result, but got a different type"));
+        }
+      });
+    });
+  }
+
+  /**
+   * 设置同步模式。
+   */
+  setSyncMode(useSyncMode: boolean): void {
+    this.whiteboard?.callHandler("room.syncMode", [useSyncMode]);
+  }
+
+  /**
    * 切换到下一个页面
    */
   nextPage(): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.nextPage", [], (result: object) => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.whiteboard?.callHandler("room.nextPage", [], (result: object | string | boolean | undefined) => {
         if (typeof result === 'boolean') {
           resolve(result);
         } else {
@@ -626,8 +769,8 @@ export class WhiteboardController {
    * 切换到上一个页面
    */
   prevPage(): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.whiteboard?.callHandler("room.prevPage", [], (result: object) => {
+    return new Promise<boolean>((resolve, reject) => {
+      this.whiteboard?.callHandler("room.prevPage", [], (result: object | string | boolean | undefined) => {
         if (typeof result === 'boolean') {
           resolve(result);
         } else {
