@@ -101,6 +101,8 @@ setViewMode(viewMode: ViewMode): void
 
 ## 多窗口 API
 
+`WhiteboardOptions.windowParams` 支持配置多窗口本地显示参数。`WindowParams.useBoxesStatus` 用于开启每个窗口独立的状态管理；开启后窗口最大化、最小化状态会按窗口分别同步，同一房间内多端建议保持一致。
+
 ### App
 
 1. `addApp`

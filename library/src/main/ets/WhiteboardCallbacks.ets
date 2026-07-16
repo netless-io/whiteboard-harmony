@@ -26,6 +26,12 @@ export class WhiteboardCallbacks {
   onLogger?: (args: object) => void;
 
   /**
+   * WebView 内本地日志状态变化回调。
+   * @param state 本地日志运行状态
+   */
+  onLocalLogStateChange?: (state: object) => void;
+
+  /**
    * 房间准备就绪回调函数，房间准备好后调用。
    */
   onRoomReady?: () => void;
@@ -95,6 +101,16 @@ export class WhiteboardCallbacks {
    */
   setOnLogger(callback: (args: object) => void): WhiteboardCallbacks {
     this.onLogger = callback;
+    return this;
+  }
+
+  /**
+   * 设置 WebView 内本地日志状态变化回调函数。
+   * @param callback 本地日志状态变化回调函数
+   * @returns 当前的 WhiteboardCallbacks 实例
+   */
+  setOnLocalLogStateChange(callback: (state: object) => void): WhiteboardCallbacks {
+    this.onLocalLogStateChange = callback;
     return this;
   }
 

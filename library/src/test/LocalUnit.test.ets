@@ -108,7 +108,16 @@ class EmptyPayload {
 }
 
 function createWindowParams(): WindowParams {
-  return new WindowParams().setFullscreen(true);
+  return new WindowParams()
+    .setFullscreen(true)
+    .setUseBoxesStatus(true)
+    .setBuiltinAppOptions({
+      presentation: {
+        useScrollbar: true,
+        debounceSync: false,
+        maxCameraScale: 4,
+      },
+    });
 }
 
 function createWhiteboardOptions(): WhiteboardOptions {
@@ -125,6 +134,17 @@ function createWhiteboardOptions(): WhiteboardOptions {
     disableOperations: true,
     floatBar: true,
     timeout: 9000,
+    presentationAppOptions: {
+      useScrollbar: true,
+      debounceSync: false,
+    },
+    slideAppOptions: {
+      enableScale: true,
+    },
+    localLogOptions: {
+      enabled: true,
+      enabledUpload: false,
+    },
     userPayload: payload,
     windowParams: createWindowParams(),
   };
@@ -244,6 +264,16 @@ export default function localUnitTest() {
       expect(roomOptions.timeout).assertEqual(9000);
       expect(JSON.stringify(roomOptions.userPayload)).assertEqual(JSON.stringify({ role: 'teacher' }));
       expect(roomOptions.windowParams?.fullscreen).assertTrue();
+      expect(roomOptions.windowParams?.useBoxesStatus).assertTrue();
+      expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.useScrollbar).assertTrue();
+      expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.debounceSync).assertFalse();
+      expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.maxCameraScale).assertEqual(4);
+      const sdkOptions = createWhiteboardOptions().presentationAppOptions;
+      expect(sdkOptions?.useScrollbar).assertTrue();
+      expect(sdkOptions?.debounceSync).assertFalse();
+      expect(createWhiteboardOptions().slideAppOptions?.enableScale).assertTrue();
+      expect(createWhiteboardOptions().localLogOptions?.enabled).assertTrue();
+      expect(createWhiteboardOptions().localLogOptions?.enabledUpload).assertFalse();
     });
 
     it('setWritable_resolves_and_updates_local_writable_state', 0, async (done: Function) => {
@@ -297,6 +327,26 @@ export default function localUnitTest() {
 
       controller.insertText(10, 12, 'abc');
       expect(bridge.lastCall().method).assertEqual('room.insertText');
+    });
+
+    it('local_log_methods_forward_to_sdk_bridge', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+
+      const statePromise: Promise<object> = controller.getLocalLogState();
+      expect(bridge.lastCall().method).assertEqual('sdk.getLocalLogState');
+      bridge.respond(toJsonString({ enabled: true, enabledUpload: false }));
+      const state: object = await statePromise;
+      expect(JSON.stringify(state)).assertEqual(JSON.stringify({ enabled: true, enabledUpload: false }));
+
+      const uploadPromise: Promise<object> = controller.uploadLocalLogs();
+      expect(bridge.lastCall().method).assertEqual('sdk.uploadLocalLogs');
+      bridge.respond(toJsonString({ status: 'skipped', reason: 'uploadDisabled' }));
+      const uploadResult: object = await uploadPromise;
+      expect(JSON.stringify(uploadResult)).assertEqual(JSON.stringify({ status: 'skipped', reason: 'uploadDisabled' }));
+
+      done();
     });
 
     it('controller_get_methods_parse_json_payload', 0, async (done: Function) => {

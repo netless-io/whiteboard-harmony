@@ -109,6 +109,10 @@ export class SdkJsInterface {
     Logger.info(`WhiteSDK logger: ${args}`);
     this.whiteboardCallbacks?.onLogger?.(args);
   };
+  localLogStateChange = (args: object): void => {
+    Logger.info(`WhiteSDK localLogStateChange: ${args}`);
+    this.whiteboardCallbacks?.onLocalLogStateChange?.(args);
+  };
   postMessage = (args: object): void => {
     Logger.info(`WhiteSDK postMessage: ${args}`);
     try {

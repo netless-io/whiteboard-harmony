@@ -66,6 +66,21 @@ export class WhiteboardController {
     }
   }
 
+  private callSdkJsonMethod<T>(method: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler(method, [], (result: object | string | boolean | undefined) => {
+        const resultObj = this.parseJsonResult<T>(result, reject);
+        if (!resultObj) {
+          return;
+        }
+        resolve(resultObj);
+      });
+    });
+  }
+
   /**
    * 设置用户在房间中是否为互动模式。
    *
@@ -778,5 +793,33 @@ export class WhiteboardController {
         }
       });
     });
+  }
+
+  /**
+   * 获取 WebView 内本地日志状态。
+   */
+  getLocalLogState(): Promise<object> {
+    return this.callSdkJsonMethod<object>("sdk.getLocalLogState");
+  }
+
+  /**
+   * 收集 WebView 内本地日志。该接口主要用于诊断。
+   */
+  collectLocalLogs(): Promise<object> {
+    return this.callSdkJsonMethod<object>("sdk.collectLocalLogs");
+  }
+
+  /**
+   * 将 WebView 内本地日志刷新到持久化存储。
+   */
+  flushLocalLogs(): Promise<object> {
+    return this.callSdkJsonMethod<object>("sdk.flushLocalLogs");
+  }
+
+  /**
+   * 触发 WebView 内本地日志上传。
+   */
+  uploadLocalLogs(): Promise<object> {
+    return this.callSdkJsonMethod<object>("sdk.uploadLocalLogs");
   }
 }

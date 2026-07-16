@@ -4,7 +4,10 @@ export { WhiteboardCallbacks } from './src/main/ets/WhiteboardCallbacks'
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
-export { WhiteboardOptions } from "./src/main/ets/WhiteboardOptions"
+export {
+  LocalLogOptions,
+  WhiteboardOptions,
+} from "./src/main/ets/WhiteboardOptions"
 export { buildRoomOptions } from "./src/main/ets/WhiteboardJoinOptions"
 
 export {
@@ -23,11 +26,15 @@ export {
   RoomState,
   Scene,
   PptPage,
+  BuiltinAppOptions,
+  PresentationAppOptions,
+  PresentationViewport,
   WindowDocsEvent,
   WindowDocsEventOptions,
   WindowDocsEventType,
   WindowAppParam,
   WindowAppSyncAttrs,
+  WindowParams,
   AddPageParam,
   RemovePageParam,
 } from "./src/main/ets/Types"

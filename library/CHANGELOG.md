@@ -1,5 +1,9 @@
 # 版本更新记录
 
+## Unreleased
+
+- `WindowParams` 新增 `useBoxesStatus` 参数，用于开启每个窗口独立的状态管理。
+
 ## [0.2.0] - 2026.05.09
 
 - 升级内嵌 `Whiteboard-bridge` jsbridge 资源。

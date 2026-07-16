@@ -495,6 +495,28 @@ export enum AnimationMode {
 /**
  * 多窗口配置参数
  */
+export interface PresentationViewport {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PresentationAppOptions {
+  disableCameraTransform?: boolean;
+  maxCameraScale?: number;
+  viewport?: PresentationViewport;
+  justDocsViewReadonly?: boolean;
+  useScrollbar?: boolean;
+  debounceSync?: boolean;
+  goToPageByClick?: boolean;
+  useClipView?: boolean;
+}
+
+export interface BuiltinAppOptions {
+  presentation?: PresentationAppOptions;
+}
+
 export class WindowParams {
   /**
    * 各个端本地显示多窗口内容时，高与宽比例，默认为 9:16
@@ -528,6 +550,12 @@ export class WindowParams {
    * 是否轮询
    */
   polling?: boolean;
+  /**
+   * 是否使用每个窗口独立的 boxesStatus 状态管理。该参数需要在加入房间前设置。
+   */
+  useBoxesStatus?: boolean;
+  /** 本地内置 App 配置，不同步到远端 */
+  builtinAppOptions?: BuiltinAppOptions;
 
   setContainerSizeRatio(containerSizeRatio: number): WindowParams {
     this.containerSizeRatio = containerSizeRatio;
@@ -566,6 +594,16 @@ export class WindowParams {
 
   setPolling(polling: boolean): WindowParams {
     this.polling = polling;
+    return this;
+  }
+
+  setUseBoxesStatus(useBoxesStatus: boolean): WindowParams {
+    this.useBoxesStatus = useBoxesStatus;
+    return this;
+  }
+
+  setBuiltinAppOptions(builtinAppOptions: BuiltinAppOptions): WindowParams {
+    this.builtinAppOptions = builtinAppOptions;
     return this;
   }
 }
@@ -615,10 +653,13 @@ export type WindowDocsEventType =
   | "nextPage"
   | "prevStep"
   | "nextStep"
-  | "jumpToPage";
+  | "jumpToPage"
+  | "scalePage";
 
 export interface WindowDocsEventOptions {
   pageIndex?: number;
+  /** 缩放当前课件页，取值范围为 1 到 4，可传入小数。 */
+  scale?: number;
 }
 
 export interface WindowDocsEvent {

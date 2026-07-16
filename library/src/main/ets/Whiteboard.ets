@@ -87,7 +87,12 @@ export struct Whiteboard {
             useMultiViews: this.options.useMultiViews ?? false,
             userCursor: this.options.userCursor ?? false,
             disableNewPencilStroke: false,
-            enableAppliancePlugin: false
+            enableAppliancePlugin: false,
+            presentationAppOptions: this.options.presentationAppOptions,
+            slideAppOptions: this.options.slideAppOptions,
+            loggerOptions: this.options.localLogOptions ? {
+              localLog: this.options.localLogOptions
+            } : undefined
           }
           this.dsBridge.callHandler("sdk.newWhiteSdk", [sdkOptions]);
 
