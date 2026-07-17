@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.2.1] - 2026.07.17
+
 - `WindowParams` 新增 `useBoxesStatus` 参数，用于开启每个窗口独立的状态管理。
 
 ## [0.2.0] - 2026.05.09

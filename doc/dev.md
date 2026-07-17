@@ -9,7 +9,7 @@
 
 1. build ->
 2. ohpm install
-   a. ohpm install @shengwang/whiteboard@0.2.0
+   a. ohpm install @shengwang/whiteboard@0.2.1
    b. ohpm install ../library
 
 
