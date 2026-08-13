@@ -3,7 +3,10 @@
   "version": "0.2.2",
   "description": "an agora whiteboard library for harmony",
   "main": "Index.ets",
-  "author": "fenglibin",
+  "author": {
+    "name": "fenglibin",
+    "email": "fenglibinjie@gmail.com"
+  },
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
