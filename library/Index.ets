@@ -5,6 +5,8 @@ export { WhiteboardCallbacks } from './src/main/ets/WhiteboardCallbacks'
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
 export {
+  AppliancePluginExtrasOptions,
+  AppliancePluginOptions,
   LocalLogOptions,
   WhiteboardOptions,
 } from "./src/main/ets/WhiteboardOptions"
@@ -39,4 +41,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.1";
+export const VERSION = "0.2.2";

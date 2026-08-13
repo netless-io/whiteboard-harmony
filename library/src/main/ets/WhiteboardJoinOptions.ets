@@ -14,5 +14,6 @@ export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
     floatBar: options.floatBar,
     timeout: options.timeout,
     windowParams: options.windowParams,
+    appliancePluginOptions: options.appliancePluginOptions,
   };
 }

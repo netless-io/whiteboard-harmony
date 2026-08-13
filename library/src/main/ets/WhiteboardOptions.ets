@@ -17,6 +17,62 @@ export interface LoggerOptions {
   localLog?: LocalLogOptions;
 }
 
+export interface ApplianceCursorOptions {
+  enable: boolean;
+  expirationTime: number;
+  syncedLabel?: ApplianceCursorSyncedLabelOptions;
+  appearance?: ApplianceCursorAppearanceMap;
+}
+
+export interface ApplianceCursorSyncedLabelOptions {
+  enableShowName: boolean;
+}
+
+export interface ApplianceCursorAppearanceOptions {
+  synced?: ApplianceCursorSyncedAppearanceOptions;
+}
+
+export interface ApplianceCursorAppearanceMap {
+  pencil?: ApplianceCursorAppearanceOptions;
+  clicker?: ApplianceCursorAppearanceOptions;
+}
+
+export interface ApplianceCursorSyncedAppearanceOptions {
+  enableShowName?: boolean;
+  images?: ApplianceCursorImagesOptions;
+}
+
+export interface ApplianceCursorImagesOptions {
+  standardResolution: string;
+}
+
+export interface ApplianceSyncOptions {
+  interval: number;
+  smoothSync: boolean;
+}
+
+export interface ApplianceBezierOptions {
+  enable: boolean;
+  maxDrawCount: number;
+}
+
+export interface ApplianceTextEditorOptions {
+  showFloatBar: boolean;
+  canSelectorSwitch: boolean;
+  rightBoundBreak: boolean;
+}
+
+export interface AppliancePluginExtrasOptions {
+  cursor?: ApplianceCursorOptions;
+  syncOpt?: ApplianceSyncOptions;
+  bezier?: ApplianceBezierOptions;
+  textEditor?: ApplianceTextEditorOptions;
+}
+
+export interface AppliancePluginOptions {
+  extras?: AppliancePluginExtrasOptions;
+}
+
 /**
  * Whiteboard 统一的配置项目
  */
@@ -25,6 +81,8 @@ export interface WhiteboardOptions {
   userCursor?: boolean;
   userPayload?: object;
   useMultiViews?: boolean;
+  enableAppliancePlugin?: boolean;
+  appliancePluginOptions?: AppliancePluginOptions;
   /** Window Manager 内置 Presentation 的本地配置 */
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
@@ -68,4 +126,5 @@ export interface RoomOptions {
   disableCameraTransform?: boolean;
   timeout?: number;
   windowParams?: WindowParams;
+  appliancePluginOptions?: AppliancePluginOptions;
 }

@@ -1,6 +1,10 @@
 # 版本更新记录
 
-## Unreleased
+## [0.2.2] - 2026.08.14
+
+- 升级内嵌 `Whiteboard-bridge` 资源至提交 `aa1dfd7`，包含 `appliance-plugin@1.1.39` 和 `window-manager@1.0.18`。
+- 新增 `enableAppliancePlugin` 与 `appliancePluginOptions`，支持透传 cursor、同步、贝塞尔曲线和文本编辑器配置。
+- Harmony demo 增加自定义 cursor 配置；模拟器验证时局部使用 2D canvas context。
 
 ## [0.2.1] - 2026.07.17
 

@@ -2,6 +2,8 @@ import { promptAction, router } from '@kit.ArkUI'
 import {
   AddPageParam,
   Appliance,
+  AppliancePluginExtrasOptions,
+  AppliancePluginOptions,
   Region,
   RoomPhase,
   Scene,
@@ -16,6 +18,60 @@ import {
   WindowDocsEventType
 } from '@shengwang/whiteboard'
 
+interface DemoCanvasOptions {
+  contextType: string;
+}
+
+interface DemoAppliancePluginExtrasOptions extends AppliancePluginExtrasOptions {
+  canvasOpt: DemoCanvasOptions;
+}
+
+interface DemoAppliancePluginOptions extends AppliancePluginOptions {
+  extras: DemoAppliancePluginExtrasOptions;
+}
+
+const demoAppliancePluginOptions: DemoAppliancePluginOptions = {
+  extras: {
+    canvasOpt: {
+      contextType: '2d',
+    },
+    cursor: {
+      enable: true,
+      expirationTime: 500,
+      syncedLabel: {
+        enableShowName: true,
+      },
+      appearance: {
+        pencil: {
+          synced: {
+            enableShowName: false,
+          },
+        },
+        clicker: {
+          synced: {
+            images: {
+              standardResolution: "https://api.iconify.design/mdi:video-wireless-outline.svg?color=%237f7f7f",
+            },
+          },
+        },
+      },
+    },
+    syncOpt: {
+      interval: 100,
+      smoothSync: false,
+    },
+    bezier: {
+      enable: false,
+      maxDrawCount: 200,
+    },
+    textEditor: {
+      showFloatBar: false,
+      canSelectorSwitch: false,
+      rightBoundBreak: true,
+    },
+  },
+}
+
 @Entry
 @Component
 struct MultipleBoard {
@@ -25,11 +81,13 @@ struct MultipleBoard {
     "[{\"name\":\"1\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/1.png\",\"width\":714.0}},{\"name\":\"2\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/2.png\",\"width\":714.0}},{\"name\":\"3\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/3.png\",\"width\":714.0}},{\"name\":\"4\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/4.png\",\"width\":714.0}}]"
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "056e9dd0a33e11ef844c9de7e0348444",
-    roomToken: "NETLESSROOM_YWs9eTBJOWsxeC1IVVo4VGh0NyZub25jZT0xNzMxNjY3MjI1MDY3MDAmcm9sZT0wJnNpZz0yZmE2NjFlNmY1Yjk4MDJkNWNkMDA4NjhhYjIyZjk3ZTY5YWEyNzU1N2U2ZjU4NmEyYWQ2OTE4ZmZiZTJhYThkJnV1aWQ9MDU2ZTlkZDBhMzNlMTFlZjg0NGM5ZGU3ZTAzNDg0NDQ",
+    roomUuid: "1c0e7ee0973c11f1b7e1f9baa0540f32",
+    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg2NzI4Mzg1MTUwJm5vbmNlPTFjMjk1OWUwLTk3M2MtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPTUyMDdlMzkzOWYwZTM4MDAyOTIyMzBmN2FhNjllYmUxZGUyOWJjMGQwZTg3ZGFiODk4ZjNhMWM1Nzk0ZTU1NTkmdXVpZD0xYzBlN2VlMDk3M2MxMWYxYjdlMWY5YmFhMDU0MGYzMg",
     region: Region.CN_HZ,
     uid: "123",
     useMultiViews: true,
+    enableAppliancePlugin: true,
+    appliancePluginOptions: demoAppliancePluginOptions,
     localLogOptions: {
       enabled: true,
       enabledUpload: true,

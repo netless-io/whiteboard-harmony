@@ -87,7 +87,7 @@ export struct Whiteboard {
             useMultiViews: this.options.useMultiViews ?? false,
             userCursor: this.options.userCursor ?? false,
             disableNewPencilStroke: false,
-            enableAppliancePlugin: false,
+            enableAppliancePlugin: this.options.enableAppliancePlugin ?? false,
             presentationAppOptions: this.options.presentationAppOptions,
             slideAppOptions: this.options.slideAppOptions,
             loggerOptions: this.options.localLogOptions ? {
