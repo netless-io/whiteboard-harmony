@@ -7,6 +7,8 @@
     "name": "fenglibin",
     "email": "fenglibinjie@gmail.com"
   },
+  "homepage": "https://github.com/netless-io/whiteboard-harmony",
+  "repository": "https://github.com/netless-io/whiteboard-harmony.git",
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
