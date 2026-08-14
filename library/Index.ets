@@ -8,7 +8,9 @@ export {
   AppliancePluginExtrasOptions,
   AppliancePluginOptions,
   LocalLogOptions,
+  VersionWorkerBlacklist,
   WhiteboardOptions,
+  WorkerBlacklistByRuntime,
 } from "./src/main/ets/WhiteboardOptions"
 export { buildRoomOptions } from "./src/main/ets/WhiteboardJoinOptions"
 

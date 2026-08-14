@@ -62,11 +62,22 @@ export interface ApplianceTextEditorOptions {
   rightBoundBreak: boolean;
 }
 
+export type VersionWorkerBlacklist = Record<string, number>;
+
+export interface WorkerBlacklistByRuntime {
+  androidWebView?: VersionWorkerBlacklist;
+  iosWebView?: VersionWorkerBlacklist;
+  harmonyArkWeb?: VersionWorkerBlacklist;
+  web?: Record<string, VersionWorkerBlacklist>;
+}
+
 export interface AppliancePluginExtrasOptions {
   cursor?: ApplianceCursorOptions;
   syncOpt?: ApplianceSyncOptions;
   bezier?: ApplianceBezierOptions;
   textEditor?: ApplianceTextEditorOptions;
+  workerRenderModeBlacklist?: WorkerBlacklistByRuntime;
+  workerCanvasContextBlacklist?: WorkerBlacklistByRuntime;
 }
 
 export interface AppliancePluginOptions {
