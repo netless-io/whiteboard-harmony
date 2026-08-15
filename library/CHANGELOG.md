@@ -1,5 +1,11 @@
 # 版本更新记录
 
+## [0.2.3] - 2026.08.15
+
+- 升级内嵌 `Whiteboard-bridge` 资源至提交 `42c7f0d`，将 `@netless/appliance-plugin` 从 `1.1.39` 升级至 `1.1.40`。
+- 新增 `workerRenderModeBlacklist` 与 `workerCanvasContextBlacklist` 配置类型，支持按 Harmony ArkWeb 等运行时版本覆盖 Appliance Plugin Worker 渲染和 Canvas context 兼容性策略。
+- 导出 `VersionWorkerBlacklist` 与 `WorkerBlacklistByRuntime`，供 Harmony 业务侧构造类型安全的 Worker 黑名单配置。
+
 ## [0.2.2] - 2026.08.14
 
 - 升级内嵌 `Whiteboard-bridge` 资源至提交 `aa1dfd7`，包含 `appliance-plugin@1.1.39` 和 `window-manager@1.0.18`。
