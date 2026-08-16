@@ -1,12 +1,30 @@
 import { webview } from '@kit.ArkWeb';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { RoomOptions, SdkOptions, WhiteboardOptions } from './WhiteboardOptions';
+import { BackgroundImageLoadOptions, RoomOptions, SdkOptions, WhiteboardOptions } from './WhiteboardOptions';
 import { WhiteboardController } from './WhiteboardController';
 import { DsBridge } from './DsBridge';
 import { RoomJsInterface, SDKError, SdkJsInterface } from './JsInterfaces';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 import { Logger } from './Logger';
 import { buildRoomOptions } from './WhiteboardJoinOptions';
+
+function validateBackgroundImageLoadOptions(options?: BackgroundImageLoadOptions): void {
+  if (!options) {
+    return;
+  }
+  if (options.maxRetries !== undefined &&
+    options.maxRetries !== -1 &&
+    (!Number.isInteger(options.maxRetries) || options.maxRetries < 0 || options.maxRetries > 10)) {
+    throw new Error('maxRetries must be -1 or an integer from 0 to 10');
+  }
+  if (options.timeoutMs !== undefined && (options.timeoutMs < 1000 || options.timeoutMs > 120000)) {
+    throw new Error('timeoutMs must be from 1000 to 120000');
+  }
+  if (options.retryIntervalMs !== undefined &&
+    (options.retryIntervalMs < 0 || options.retryIntervalMs > 30000)) {
+    throw new Error('retryIntervalMs must be from 0 to 30000');
+  }
+}
 
 @Component
 export struct Whiteboard {
@@ -78,6 +96,8 @@ export struct Whiteboard {
           const sdkJsInterface = new SdkJsInterface(this.callbacks)
           const roomJsInterface = new RoomJsInterface(this.callbacks)
 
+          validateBackgroundImageLoadOptions(this.options.backgroundImageLoadOptions)
+
           this.dsBridge.addJavascriptObject(sdkJsInterface, "sdk")
           this.dsBridge.addJavascriptObject(roomJsInterface, "room")
 
@@ -92,7 +112,8 @@ export struct Whiteboard {
             slideAppOptions: this.options.slideAppOptions,
             loggerOptions: this.options.localLogOptions ? {
               localLog: this.options.localLogOptions
-            } : undefined
+            } : undefined,
+            backgroundImageLoadOptions: this.options.backgroundImageLoadOptions
           }
           this.dsBridge.callHandler("sdk.newWhiteSdk", [sdkOptions]);
 

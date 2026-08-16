@@ -1,11 +1,14 @@
 export { Whiteboard } from './src/main/ets/Whiteboard'
 
-export { WhiteboardCallbacks } from './src/main/ets/WhiteboardCallbacks'
+export { BackgroundImageLoadEvent, BackgroundImageSource, WhiteboardCallbacks } from './src/main/ets/WhiteboardCallbacks'
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
 export {
   AppliancePluginExtrasOptions,
+  BackgroundImageLoadOptions,
+  ReloadBackgroundImageParams,
+  ReloadBackgroundImageResult,
   AppliancePluginOptions,
   LocalLogOptions,
   VersionWorkerBlacklist,

@@ -24,6 +24,7 @@ import {
 import { util } from '@kit.ArkTS';
 import { SDKError } from './JsInterfaces';
 import { ColorMetrics } from '@kit.ArkUI';
+import { ReloadBackgroundImageParams, ReloadBackgroundImageResult } from './WhiteboardOptions';
 
 export class WhiteboardController {
   private whiteboard?: DsBridge
@@ -821,5 +822,21 @@ export class WhiteboardController {
    */
   uploadLocalLogs(): Promise<object> {
     return this.callSdkJsonMethod<object>("sdk.uploadLocalLogs");
+  }
+
+  /** 重新加载当前聚焦场景中此前加载失败的背景图片。 */
+  reloadBackgroundImage(params: ReloadBackgroundImageParams): Promise<ReloadBackgroundImageResult> {
+    return new Promise<ReloadBackgroundImageResult>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("sdk.reloadBackgroundImage", [params],
+        (result: object | string | boolean | undefined) => {
+          const resultObj = this.parseJsonResult<ReloadBackgroundImageResult>(result, reject);
+          if (resultObj) {
+            resolve(resultObj);
+          }
+        });
+    });
   }
 }

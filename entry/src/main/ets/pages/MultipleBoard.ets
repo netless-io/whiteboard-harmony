@@ -4,6 +4,7 @@ import {
   Appliance,
   AppliancePluginExtrasOptions,
   AppliancePluginOptions,
+  BackgroundImageLoadEvent,
   Region,
   RoomPhase,
   Scene,
@@ -81,12 +82,15 @@ struct MultipleBoard {
     "[{\"name\":\"1\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/1.png\",\"width\":714.0}},{\"name\":\"2\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/2.png\",\"width\":714.0}},{\"name\":\"3\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/3.png\",\"width\":714.0}},{\"name\":\"4\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/4.png\",\"width\":714.0}}]"
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "1c0e7ee0973c11f1b7e1f9baa0540f32",
-    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg2NzI4Mzg1MTUwJm5vbmNlPTFjMjk1OWUwLTk3M2MtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPTUyMDdlMzkzOWYwZTM4MDAyOTIyMzBmN2FhNjllYmUxZGUyOWJjMGQwZTg3ZGFiODk4ZjNhMWM1Nzk0ZTU1NTkmdXVpZD0xYzBlN2VlMDk3M2MxMWYxYjdlMWY5YmFhMDU0MGYzMg",
+    roomUuid: "0e4723c0986811f188c52bd9b24f5d77",
+    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg2ODU3MjExMTQwJm5vbmNlPTBlNmY2YzQwLTk4NjgtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPWNhMjg3Y2IwNTJlZjI3OGQ2NDY3YTZlYzQ1NDU5ZmE5Mjg4YmM4N2Y3NjE3MDVhZWQ0MGZjYzc4NDUyNWY5NDAmdXVpZD0wZTQ3MjNjMDk4NjgxMWYxODhjNTJiZDliMjRmNWQ3Nw",
     region: Region.CN_HZ,
     uid: "123",
     useMultiViews: true,
     enableAppliancePlugin: true,
+    backgroundImageLoadOptions: {
+      maxRetries: 1,
+    },
     appliancePluginOptions: demoAppliancePluginOptions,
     localLogOptions: {
       enabled: true,
@@ -102,8 +106,7 @@ struct MultipleBoard {
     windowParams: new WindowParams()
       .setContainerSizeRatio(0.75)
       .setChessboard(true)
-      .setDebug(true)
-      .setUseBoxesStatus(true),
+      .setDebug(true),
   }
   whiteboardController: WhiteboardController = new WhiteboardController();
   callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
@@ -121,6 +124,25 @@ struct MultipleBoard {
     })
     .setOnRoomStateChanged((roomState) => {
       console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState))
+    })
+    .setOnBackgroundImageLoad(async (event: BackgroundImageLoadEvent) => {
+      console.log('[Whiteboard] backgroundImageLoad:', JSON.stringify(event))
+      if (event.state !== 'failed') {
+        return
+      }
+      // mainView 可直接比较；appId 对应的路径由 reload API 在插件内原子校验。
+      if (event.viewId === 'mainView') {
+        const roomState = await this.whiteboardController.getRoomState()
+        if (roomState.sceneState?.scenePath !== event.scenePath) {
+          return
+        }
+      }
+      const result = await this.whiteboardController.reloadBackgroundImage({
+        source: event.source,
+        viewId: event.viewId,
+        scenePath: event.scenePath,
+      })
+      console.log('[Whiteboard] reloadBackgroundImage:', JSON.stringify(result))
     })
   colorIndex = -1
   colors: string[] = [

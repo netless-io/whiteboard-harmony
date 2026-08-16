@@ -8,7 +8,7 @@ import {
   SlideListener,
   toRoomPhase,
 } from './Types';
-import { WhiteboardCallbacks } from './WhiteboardCallbacks';
+import { BackgroundImageLoadEvent, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 interface PostMessageCallback {
   onMessage(jsonObject: object): void;
@@ -118,6 +118,14 @@ export class SdkJsInterface {
     try {
       if (!args) {
         return;
+      }
+      const message = args as Record<string, Object>;
+      if (message.name === 'backgroundImageLoad') {
+        try {
+          this.whiteboardCallbacks?.onBackgroundImageLoad?.(args as BackgroundImageLoadEvent);
+        } catch (err) {
+          Logger.error(`WhiteSDK onBackgroundImageLoad callback failed: ${String(err)}`);
+        }
       }
       this.whiteboardCallbacks?.onMessage?.(args);
       this.postMessageCallback?.onMessage(args);

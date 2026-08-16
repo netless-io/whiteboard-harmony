@@ -6,6 +6,18 @@ import {
   RoomState,
 } from './Types';
 
+export type BackgroundImageSource = 'appliance' | 'whiteSdk';
+
+export interface BackgroundImageLoadEvent {
+  name: 'backgroundImageLoad';
+  state: 'success' | 'failed' | 'cancelled';
+  source: BackgroundImageSource;
+  resourceId: string;
+  resourceUrl: string;
+  viewId: string;
+  scenePath: string;
+}
+
 export class WhiteboardCallbacks {
   /**
    * 错误回调函数，处理错误信息。
@@ -18,6 +30,7 @@ export class WhiteboardCallbacks {
    * @param args 消息对象
    */
   onMessage?: (args: object) => void;
+  onBackgroundImageLoad?: (event: BackgroundImageLoadEvent) => void;
 
   /**
    * 日志回调函数，用于记录日志。
@@ -91,6 +104,11 @@ export class WhiteboardCallbacks {
    */
   setThrowError(callback: (args: object) => void): WhiteboardCallbacks {
     this.throwError = callback;
+    return this;
+  }
+
+  setOnBackgroundImageLoad(callback: (event: BackgroundImageLoadEvent) => void): WhiteboardCallbacks {
+    this.onBackgroundImageLoad = callback;
     return this;
   }
 

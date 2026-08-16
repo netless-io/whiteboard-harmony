@@ -1,5 +1,5 @@
 import { PresentationAppOptions, Region, WindowParams } from './Types';
-import { WhiteboardCallbacks } from './WhiteboardCallbacks';
+import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 export interface SlideAppOptions {
   /** 是否允许缩放 Slide 内容，默认 false */
@@ -15,6 +15,25 @@ export interface LocalLogOptions {
 
 export interface LoggerOptions {
   localLog?: LocalLogOptions;
+}
+
+export interface BackgroundImageLoadOptions {
+  maxRetries?: number;
+  timeoutMs?: number;
+  retryIntervalMs?: number;
+}
+
+export interface ReloadBackgroundImageParams {
+  source: BackgroundImageSource;
+  viewId: string;
+  scenePath?: string;
+  url?: string;
+}
+
+export interface ReloadBackgroundImageResult {
+  accepted: boolean;
+  reloadedCount: number;
+  reason?: 'viewNotFound' | 'sceneNotFocused' | 'resourceNotFound' | 'alreadyLoading';
 }
 
 export interface ApplianceCursorOptions {
@@ -110,6 +129,7 @@ export interface WhiteboardOptions {
   floatBar?: boolean;
   timeout?: number;
   callbacks?: WhiteboardCallbacks;
+  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }
 
 export interface SdkOptions {
@@ -122,6 +142,7 @@ export interface SdkOptions {
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
   loggerOptions?: LoggerOptions;
+  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }
 
 export interface RoomOptions {
