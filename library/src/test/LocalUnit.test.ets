@@ -1,7 +1,8 @@
 import { describe, it, expect } from '@ohos/hypium';
 import { WhiteboardController } from '../main/ets/WhiteboardController';
 import { DsBridge } from '../main/ets/DsBridge';
-import { RoomJsInterface } from '../main/ets/JsInterfaces';
+import { RoomJsInterface, SdkJsInterface } from '../main/ets/JsInterfaces';
+import { SDKError } from '../main/ets/SDKError';
 import { WhiteboardCallbacks } from '../main/ets/WhiteboardCallbacks';
 import { buildRoomOptions } from '../main/ets/WhiteboardJoinOptions';
 import {
@@ -495,6 +496,25 @@ export default function localUnitTest() {
       expect(magixEventName).assertEqual('ping');
       expect(highFrequencyCount).assertEqual(1);
       expect(roomStateValue).assertEqual(JSON.stringify(createRoomStatePayload('algebra')));
+    });
+
+    it('SdkJsInterface_forwards_white_setup_failure', 0, () => {
+      let setupError: SDKError | undefined;
+      let loggerCallCount: number = 0;
+      const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
+      callbacks.sdkSetupFail = (error: SDKError) => {
+        setupError = error;
+      };
+      callbacks.onLogger = () => {
+        loggerCallCount += 1;
+      };
+
+      const sdkJsInterface: SdkJsInterface = new SdkJsInterface(callbacks);
+      sdkJsInterface.setupFail(toJsonString({ message: 'invalid app identifier', jsStack: 'setup stack' }));
+
+      expect(setupError?.message).assertEqual('invalid app identifier');
+      expect(setupError?.jsStack).assertEqual('setup stack');
+      expect(loggerCallCount).assertEqual(0);
     });
   });
 }

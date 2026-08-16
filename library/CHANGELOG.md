@@ -1,5 +1,10 @@
 # 版本更新记录
 
+## [Unreleased]
+
+- `WhiteboardCallbacks` 新增 `sdkSetupFail`，用于在 SDK 初始化失败时通知业务侧重新初始化并重新加房，并与 Android、iOS 的公开接口命名保持一致。
+- 公开导出 `SDKError`，提供初始化失败原因和 JS 堆栈信息。
+
 ## [0.2.3] - 2026.08.15
 
 - 升级内嵌 `Whiteboard-bridge` 资源至提交 `42c7f0d`，将 `@netless/appliance-plugin` 从 `1.1.39` 升级至 `1.1.40`。

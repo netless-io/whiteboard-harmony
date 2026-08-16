@@ -44,6 +44,17 @@ struct Demo {
 
 ## 白板操作
 
+### SDK 初始化失败回调
+
+SDK 初始化失败后，加入实时房间可能一直无响应。通过 `sdkSetupFail` 监听该错误，并重新创建白板组件以完成 SDK 初始化和加房。
+
+```typescript
+const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
+callbacks.sdkSetupFail = (error: SDKError) => {
+  console.error(`Whiteboard setup failed: ${error.message}`);
+};
+```
+
 ### **更改读写模式**
 
 ```

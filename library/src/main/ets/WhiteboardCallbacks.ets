@@ -5,6 +5,7 @@ import {
   RoomPhase,
   RoomState,
 } from './Types';
+import { SDKError } from './SDKError';
 
 export type BackgroundImageSource = 'appliance' | 'whiteSdk';
 
@@ -48,6 +49,12 @@ export class WhiteboardCallbacks {
    * 房间准备就绪回调函数，房间准备好后调用。
    */
   onRoomReady?: () => void;
+
+  /**
+   * SDK 初始化失败回调。触发后需要重新初始化 SDK，再重新加入房间。
+   * @param error 初始化失败错误
+   */
+  sdkSetupFail?: (error: SDKError) => void;
 
   /**
    * 房间状态变更回调函数，当房间阶段发生变化时调用。

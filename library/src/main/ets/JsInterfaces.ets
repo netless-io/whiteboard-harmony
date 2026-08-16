@@ -9,6 +9,9 @@ import {
   toRoomPhase,
 } from './Types';
 import { BackgroundImageLoadEvent, WhiteboardCallbacks } from './WhiteboardCallbacks';
+import { SDKError, SDKErrorPayload } from './SDKError';
+
+export { SDKError } from './SDKError';
 
 interface PostMessageCallback {
   onMessage(jsonObject: object): void;
@@ -18,63 +21,12 @@ interface CompletionHandler<T> {
   complete(result: T): void;
 }
 
-interface JSRespError {
-  message: string;
-  jsStack?: string;
-}
-
-class JsResponse {
-  __error?: JSRespError
-}
-
 function parseJsonOrNull<T>(input: string): T | null {
   try {
     return JSON.parse(input) as T;
   } catch (error) {
     Logger.error("parse json failed", error);
     return null;
-  }
-}
-
-export class SDKError extends Error {
-  private jsStack: string;
-
-  constructor(message: string, jsStack: string = "Native Error") {
-    super(message);
-    this.jsStack = jsStack;
-    this.name = "SDKError";
-  }
-
-  static parseError(object: JSRespError): SDKError {
-    try {
-      const msg = object.message;
-      const jsStack = object.jsStack;
-      return new SDKError(msg, jsStack);
-    } catch (e) {
-      return new SDKError("parseError" + e.message, e.jsStack);
-    }
-  }
-
-  static promiseError(str: string): SDKError | null {
-    try {
-      const jsonObject: JsResponse = JSON.parse(str);
-      return SDKError.promiseErrorFromJson(jsonObject);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  static promiseErrorFromJson(jsonObject: JsResponse): SDKError | null {
-    if (jsonObject.__error) {
-      const msg = jsonObject.__error.message || "Unknown exception";
-      const jsStack = jsonObject.__error.jsStack || "Unknown stack";
-      return new SDKError(msg, jsStack);
-    }
-    return null;
-  }
-
-  toString(): string {
-    return `${super.toString()} jsStack: ${this.jsStack}`;
   }
 }
 
@@ -170,11 +122,10 @@ export class SdkJsInterface {
     Logger.info("onPPTMediaPause called");
   };
   setupFail = (args: object): void => {
-    console.log(`setupFail called ${args}}`);
     const jsonObject = this.convertToJsonOrNull(args);
     if (jsonObject) {
-      const sdkError = SDKError.parseError(jsonObject as JSRespError);
-      this.whiteboardCallbacks?.onLogger?.(sdkError);
+      const sdkError = SDKError.parseError(jsonObject as SDKErrorPayload);
+      this.whiteboardCallbacks?.sdkSetupFail?.(sdkError);
     }
   };
   private convertToJsonOrNull = (args: object): object | null => {

@@ -4,6 +4,8 @@ export { BackgroundImageLoadEvent, BackgroundImageSource, WhiteboardCallbacks } 
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 
+export { SDKError } from "./src/main/ets/SDKError"
+
 export {
   AppliancePluginExtrasOptions,
   BackgroundImageLoadOptions,
