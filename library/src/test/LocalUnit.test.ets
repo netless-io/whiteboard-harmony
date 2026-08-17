@@ -350,6 +350,46 @@ export default function localUnitTest() {
       done();
     });
 
+    it('hasBackgroundImage_forwards_query_and_parses_boolean', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+      const params = {
+        viewId: 'mainView',
+        scenePath: '/scene-1',
+        imageUrl: 'https://example.com/background.webp?token=value#fragment',
+        sources: ['appliance'],
+      };
+
+      const promise: Promise<boolean> = controller.hasBackgroundImage(params);
+      expect(bridge.lastCall().method).assertEqual('sdk.hasBackgroundImage');
+      expect(JSON.stringify(bridge.lastCall().args?.[0])).assertEqual(JSON.stringify(params));
+      bridge.respond(true);
+      expect(await promise).assertTrue();
+      done();
+    });
+
+    it('hasBackgroundImage_rejects_bridge_error', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+      const promise: Promise<boolean> = controller.hasBackgroundImage({
+        viewId: 'mainView',
+        scenePath: '/scene-1',
+        imageUrl: 'https://example.com/background.webp',
+        sources: ['appliance'],
+      });
+      bridge.respond(toJsonString(createErrorWrapper()));
+      let message: string = '';
+      try {
+        await promise;
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).assertContain('boom');
+      done();
+    });
+
     it('controller_get_methods_parse_json_payload', 0, async (done: Function) => {
       const bridge: FakeBridge = new FakeBridge();
       const controller: WhiteboardController = new WhiteboardController();

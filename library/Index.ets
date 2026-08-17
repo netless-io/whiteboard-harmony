@@ -9,6 +9,7 @@ export { SDKError } from "./src/main/ets/SDKError"
 export {
   AppliancePluginExtrasOptions,
   BackgroundImageLoadOptions,
+  HasBackgroundImageParams,
   ReloadBackgroundImageParams,
   ReloadBackgroundImageResult,
   AppliancePluginOptions,

@@ -24,7 +24,7 @@ import {
 import { util } from '@kit.ArkTS';
 import { SDKError } from './JsInterfaces';
 import { ColorMetrics } from '@kit.ArkUI';
-import { ReloadBackgroundImageParams, ReloadBackgroundImageResult } from './WhiteboardOptions';
+import { HasBackgroundImageParams, ReloadBackgroundImageParams, ReloadBackgroundImageResult } from './WhiteboardOptions';
 
 export class WhiteboardController {
   private whiteboard?: DsBridge
@@ -836,6 +836,30 @@ export class WhiteboardController {
           if (resultObj) {
             resolve(resultObj);
           }
+        });
+    });
+  }
+
+  /** 查询指定白板、场景和 URL 是否已有任一来源的背景图。 */
+  hasBackgroundImage(params: HasBackgroundImageParams): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("sdk.hasBackgroundImage", [params],
+        (result: object | string | boolean | undefined) => {
+          if (typeof result === 'boolean') {
+            resolve(result);
+            return;
+          }
+          if (typeof result === 'string') {
+            const sdkError: SDKError | null = SDKError.promiseError(result);
+            if (sdkError) {
+              reject(sdkError);
+              return;
+            }
+          }
+          reject(new Error("Expected boolean result from hasBackgroundImage"));
         });
     });
   }

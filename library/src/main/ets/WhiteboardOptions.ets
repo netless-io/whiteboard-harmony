@@ -36,6 +36,13 @@ export interface ReloadBackgroundImageResult {
   reason?: 'viewNotFound' | 'sceneNotFocused' | 'resourceNotFound' | 'alreadyLoading';
 }
 
+export interface HasBackgroundImageParams {
+  viewId: string;
+  scenePath: string;
+  imageUrl: string;
+  sources: BackgroundImageSource[];
+}
+
 export interface ApplianceCursorOptions {
   enable: boolean;
   expirationTime: number;
