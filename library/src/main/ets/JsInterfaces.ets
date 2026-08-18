@@ -8,7 +8,11 @@ import {
   SlideListener,
   toRoomPhase,
 } from './Types';
-import { BackgroundImageLoadEvent, WhiteboardCallbacks } from './WhiteboardCallbacks';
+import {
+  ApplianceInitLoadingChangeEvent,
+  BackgroundImageLoadEvent,
+  WhiteboardCallbacks,
+} from './WhiteboardCallbacks';
 import { SDKError, SDKErrorPayload } from './SDKError';
 
 export { SDKError } from './SDKError';
@@ -77,6 +81,15 @@ export class SdkJsInterface {
           this.whiteboardCallbacks?.onBackgroundImageLoad?.(args as BackgroundImageLoadEvent);
         } catch (err) {
           Logger.error(`WhiteSDK onBackgroundImageLoad callback failed: ${String(err)}`);
+        }
+      }
+      if (message.name === 'applianceInitLoadingChange') {
+        try {
+          this.whiteboardCallbacks?.onApplianceInitLoadingChange?.(
+            args as ApplianceInitLoadingChangeEvent,
+          );
+        } catch (err) {
+          Logger.error('WhiteSDK onApplianceInitLoadingChange callback failed: ' + String(err));
         }
       }
       this.whiteboardCallbacks?.onMessage?.(args);

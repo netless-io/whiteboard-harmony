@@ -1,6 +1,11 @@
 export { Whiteboard } from './src/main/ets/Whiteboard'
 
-export { BackgroundImageLoadEvent, BackgroundImageSource, WhiteboardCallbacks } from './src/main/ets/WhiteboardCallbacks'
+export {
+  ApplianceInitLoadingChangeEvent,
+  BackgroundImageLoadEvent,
+  BackgroundImageSource,
+  WhiteboardCallbacks,
+} from './src/main/ets/WhiteboardCallbacks'
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 

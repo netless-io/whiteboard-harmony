@@ -19,6 +19,13 @@ export interface BackgroundImageLoadEvent {
   scenePath: string;
 }
 
+export interface ApplianceInitLoadingChangeEvent {
+  name: 'applianceInitLoadingChange';
+  loading: boolean;
+  phase: 'plugin' | 'worker' | 'scene' | 'ready';
+  status: 'start' | 'success' | 'timeout' | 'error';
+}
+
 export class WhiteboardCallbacks {
   /**
    * 错误回调函数，处理错误信息。
@@ -32,6 +39,7 @@ export class WhiteboardCallbacks {
    */
   onMessage?: (args: object) => void;
   onBackgroundImageLoad?: (event: BackgroundImageLoadEvent) => void;
+  onApplianceInitLoadingChange?: (event: ApplianceInitLoadingChangeEvent) => void;
 
   /**
    * 日志回调函数，用于记录日志。
@@ -116,6 +124,13 @@ export class WhiteboardCallbacks {
 
   setOnBackgroundImageLoad(callback: (event: BackgroundImageLoadEvent) => void): WhiteboardCallbacks {
     this.onBackgroundImageLoad = callback;
+    return this;
+  }
+
+  setOnApplianceInitLoadingChange(
+    callback: (event: ApplianceInitLoadingChangeEvent) => void,
+  ): WhiteboardCallbacks {
+    this.onApplianceInitLoadingChange = callback;
     return this;
   }
 
