@@ -85,6 +85,7 @@ struct MultipleBoard {
       minFPS: 5,
       maxFPS: 15,
       enableGlobalClick: false,
+      enableScale: true,
     },
     presentationAppOptions: {
       maxCameraScale: 4,
@@ -93,7 +94,8 @@ struct MultipleBoard {
     windowParams: new WindowParams()
       .setContainerSizeRatio(0.75)
       .setChessboard(true)
-      .setDebug(true),
+      .setDebug(true)
+      .setOverwriteStyles(".netless-app-slide-wb-view {clip-path: none !important;}"),
   }
   whiteboardController: WhiteboardController = new WhiteboardController();
   callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
