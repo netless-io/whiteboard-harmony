@@ -4,6 +4,16 @@ import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallback
 export interface SlideAppOptions {
   /** 是否允许缩放 Slide 内容，默认 false */
   enableScale?: boolean;
+  /** 渲染分辨倍率，默认 1 */
+  resolution?: number;
+  /** 取值范围 0~4 */
+  maxResolutionLevel?: number;
+  /** 最小 fps，默认 25 */
+  minFPS?: number;
+  /** 最大 fps，默认 40 */
+  maxFPS?: number;
+  /** 是否开启全局点击功能，默认 true */
+  enableGlobalClick?: boolean;
 }
 
 export interface LocalLogOptions {
@@ -97,7 +107,20 @@ export interface WorkerBlacklistByRuntime {
   web?: Record<string, VersionWorkerBlacklist>;
 }
 
+export interface ApplianceCanvasOptions {
+  /** 画布上下文类型，例如 "2d" */
+  contextType?: string;
+}
+
 export interface AppliancePluginExtrasOptions {
+  /** 是否使用 worker，默认 "auto" */
+  useWorker?: 'auto' | 'mainThread';
+  /** 是否使用简单模式，默认 true */
+  useSimple?: boolean;
+  /** 是否使用背景 Svg 功能，默认 false */
+  useBackgroundThread?: boolean;
+  /** 画布配置项 */
+  canvasOpt?: ApplianceCanvasOptions;
   cursor?: ApplianceCursorOptions;
   syncOpt?: ApplianceSyncOptions;
   bezier?: ApplianceBezierOptions;

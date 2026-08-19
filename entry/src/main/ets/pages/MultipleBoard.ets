@@ -1,12 +1,11 @@
 import { promptAction, router } from '@kit.ArkUI'
 import {
-  AddPageParam,
+  WindowParams,
   Appliance,
-  AppliancePluginExtrasOptions,
+  ApplianceInitLoadingChangeEvent,
   AppliancePluginOptions,
   BackgroundImageLoadEvent,
   Region,
-  RoomPhase,
   Scene,
   ShapeType,
   Whiteboard,
@@ -15,24 +14,14 @@ import {
   WhiteboardOptions,
   WindowAppParam,
   WindowAppSyncAttrs,
-  WindowParams,
   WindowDocsEventType
 } from '@shengwang/whiteboard'
 
-interface DemoCanvasOptions {
-  contextType: string;
-}
-
-interface DemoAppliancePluginExtrasOptions extends AppliancePluginExtrasOptions {
-  canvasOpt: DemoCanvasOptions;
-}
-
-interface DemoAppliancePluginOptions extends AppliancePluginOptions {
-  extras: DemoAppliancePluginExtrasOptions;
-}
-
-const demoAppliancePluginOptions: DemoAppliancePluginOptions = {
+const demoAppliancePluginOptions: AppliancePluginOptions = {
   extras: {
+    useWorker: 'mainThread',
+    useSimple: true,
+    useBackgroundThread: true,
     canvasOpt: {
       contextType: '2d',
     },
@@ -76,20 +65,21 @@ const demoAppliancePluginOptions: DemoAppliancePluginOptions = {
 @Entry
 @Component
 struct MultipleBoard {
-  @State writeable: boolean = true
+  @State writeable: boolean = false
   @State appId: string | undefined = undefined
   presentationScenesJson: string =
     "[{\"name\":\"1\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/1.png\",\"width\":714.0}},{\"name\":\"2\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/2.png\",\"width\":714.0}},{\"name\":\"3\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/3.png\",\"width\":714.0}},{\"name\":\"4\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/4.png\",\"width\":714.0}}]"
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "0e4723c0986811f188c52bd9b24f5d77",
-    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg2ODU3MjExMTQwJm5vbmNlPTBlNmY2YzQwLTk4NjgtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPWNhMjg3Y2IwNTJlZjI3OGQ2NDY3YTZlYzQ1NDU5ZmE5Mjg4YmM4N2Y3NjE3MDVhZWQ0MGZjYzc4NDUyNWY5NDAmdXVpZD0wZTQ3MjNjMDk4NjgxMWYxODhjNTJiZDliMjRmNWQ3Nw",
+    roomUuid: "cd1221809b8111f1aaeead87383431cf",
+    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg3MTk4MTIyMTI2Jm5vbmNlPWNkMzdhYWUwLTliODEtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPTExNTk0NTVmMTVkYjE5MmY0NDgyMmVmYTlkNDQxNjBmODM3ZTVhNGQwYzRkNzlhNjc4MTFlNzAxZjUwODhhNmMmdXVpZD1jZDEyMjE4MDliODExMWYxYWFlZWFkODczODM0MzFjZg",
     region: Region.CN_HZ,
     uid: "123",
     useMultiViews: true,
     enableAppliancePlugin: true,
+    writable: false,
     backgroundImageLoadOptions: {
-      maxRetries: 1,
+      maxRetries: 3,
     },
     appliancePluginOptions: demoAppliancePluginOptions,
     localLogOptions: {
@@ -97,7 +87,11 @@ struct MultipleBoard {
       enabledUpload: true,
     },
     slideAppOptions: {
-      enableScale: true,
+      resolution: 1,
+      maxResolutionLevel: 2,
+      minFPS: 5,
+      maxFPS: 15,
+      enableGlobalClick: false,
     },
     presentationAppOptions: {
       maxCameraScale: 4,
@@ -114,6 +108,10 @@ struct MultipleBoard {
     .setOnLogger((args) => console.log('[Whiteboard] Logger:', args))
     .setOnLocalLogStateChange((state) => {
       console.log('[Whiteboard] Local log state changed:', JSON.stringify(state))
+    })
+    .setOnApplianceInitLoadingChange((event: ApplianceInitLoadingChangeEvent) => {
+      console.log('[Whiteboard] appliance init loading change:', JSON.stringify(event))
+      this.showToast(`appliance ${event.phase} ${event.status}`)
     })
     .setOnRoomPhaseChanged((roomPhase) => {
       console.log('[Whiteboard] Room phase changed:', roomPhase)
@@ -167,162 +165,185 @@ struct MultipleBoard {
         .width('100%')
         .height('100%')
 
-      Scroll() {
-        Flex({ wrap: FlexWrap.Wrap }) {
-          TestButton("Back", () => {
-            try {
-              router.back()
-            } catch (err) {
-              console.error(`Failed to return to the first page. Code is ${err.message}`)
-            }
-          })
-
-          TestButton("Writable", async () => {
-            this.whiteboardController.setWritable(!this.writeable).then((value) => {
+      Row() {
+        Button(this.writeable ? '移除可写' : '获取可写')
+          .fontSize(16)
+          .type(ButtonType.Capsule)
+          .backgroundColor('#0D9FFB')
+          .margin({ left: 10, top: 10 })
+          .onClick(() => {
+            const next = !this.writeable
+            this.whiteboardController.setWritable(next).then((value) => {
               this.writeable = value
-            })
-          })
-
-          TestButton("Clean", async () => {
-            this.whiteboardController.cleanScene()
-          })
-
-          TestButton("Colors", async () => {
-            this.colorIndex = ++this.colorIndex % this.colors.length
-            this.whiteboardController.setStrokeColor(this.colors[this.colorIndex])
-          })
-
-          TestButton("Appliances", async () => {
-            this.applianceIndex = ++this.applianceIndex % this.appliances.length
-            const pair = this.appliances[this.applianceIndex] as [Appliance, ShapeType]
-            this.whiteboardController.setAppliance(pair[0], pair[1])
-          })
-
-          TestButton("Selector", async () => {
-            this.whiteboardController.setAppliance(Appliance.SELECTOR)
-          })
-
-          TestButton("Copy&Paste", async () => {
-            this.whiteboardController.copy()
-            this.whiteboardController.paste()
-          })
-
-          TestButton("MediaPlayer", async () => {
-            const param: WindowAppParam = {
-              kind: "MediaPlayer",
-              options: { title: "player" } as ESObject,
-              attributes: { src: "https://white-pan.oss-cn-shanghai.aliyuncs.com/101/oceans.mp4" } as ESObject,
-            }
-            await this.whiteboardController.addApp(param)
-          })
-
-          TestButton("DocsViewer", async () => {
-            const json: string =
-              "[{\"name\":\"1\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/1.png\",\"width\":714.0}},{\"name\":\"2\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/2.png\",\"width\":714.0}},{\"name\":\"3\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/3.png\",\"width\":714.0}},{\"name\":\"4\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/4.png\",\"width\":714.0}}]";
-
-            const scenes = JSON.parse(json) as Scene[]
-            const scenePath = "/static"
-            const title = "Doc"
-
-            const param: WindowAppParam = {
-              kind: "DocsViewer",
-              options: { scenePath, scenes, title } as ESObject,
-            }
-            this.whiteboardController.addApp(param)
-          })
-
-          TestButton("NewDynamic", async () => {
-            const prefixUrl = "https://conversion-demo-cn.oss-cn-hangzhou.aliyuncs.com/demo/dynamicConvert";
-            const taskUuid = "3e3a2b8845194f998e6e05adab70e1a1";
-
-            const scenePath = `/dynamic/${taskUuid}`
-            const title = "Dynamic"
-
-            const param: WindowAppParam = {
-              kind: "Slide",
-              options: { scenePath, title } as ESObject,
-              attributes: { taskId: taskUuid, url: prefixUrl } as ESObject
-            }
-            this.whiteboardController.addApp(param)
-          })
-
-          TestButton("Presentation", async () => {
-            this.insertPresentationCourseware()
-          })
-
-          TestButton("ScalePage 2x", async () => {
-            this.dispatchScalePage(2.0)
-          })
-
-          TestButton("ScalePage 1x", async () => {
-            this.dispatchScalePage(1.0)
-          })
-
-          TestButton("CloseApp", async () => {
-            try {
-              const apps: Record<string, WindowAppSyncAttrs> = await this.whiteboardController.queryAllApps()
-              const lastKey = Object.keys(apps)[Object.keys(apps).length - 1]
-              this.whiteboardController.closeApp(lastKey)
-            } catch (e) {
-            }
-          })
-
-          TestButton("FocusApp", async () => {
-            try {
-              const apps: Record<string, WindowAppSyncAttrs> = await this.whiteboardController.queryAllApps()
-              const lastKey = Object.keys(apps)[Object.keys(apps).length - 1]
-              this.whiteboardController.focusApp(lastKey)
-            } catch (err) {
-              console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
-            }
-          })
-
-          TestButton("AddPage", async () => {
-            // 默认在插入到最后页面，使用 { after: true } 插入到当前页面后
-            this.whiteboardController.addPage({ after: true })
-
-            //不主动切换页面，需要调用页面变更
-            this.whiteboardController.nextPage()
-          })
-
-          TestButton("RemovePage", async () => {
-            this.whiteboardController.removePage()
-          })
-
-          TestButton("PrevPage", async () => {
-            this.dispatchPageEventAndResetScale("prevPage")
-          })
-
-          TestButton("NextPage", async () => {
-            this.dispatchPageEventAndResetScale("nextPage")
-          })
-
-          TestButton("LogState", async () => {
-            this.whiteboardController.getLocalLogState().then((state) => {
-              console.log('[Whiteboard] Local log state:', JSON.stringify(state))
-              this.showToast('getLocalLogState success')
+              this.showToast(`setWritable ${value}`)
             }).catch((error: Error) => {
-              console.error('[Whiteboard] getLocalLogState failed:', error.message)
-              this.showToast('getLocalLogState failed')
+              console.error('[Whiteboard] setWritable failed:', error.message)
+              this.showToast('setWritable failed')
             })
           })
 
-          TestButton("UploadLogs", async () => {
-            this.whiteboardController.uploadLocalLogs().then((result) => {
-              console.log('[Whiteboard] uploadLocalLogs:', JSON.stringify(result))
-              this.showToast('uploadLocalLogs success')
+        Blank()
+
+        Button('退出房间')
+          .fontSize(16)
+          .type(ButtonType.Capsule)
+          .backgroundColor('#F5655C')
+          .margin({ right: 10, top: 10 })
+          .onClick(() => {
+            this.whiteboardController.disconnect().then(() => {
+              console.log('[Whiteboard] disconnect success')
+              router.back()
             }).catch((error: Error) => {
-              console.error('[Whiteboard] uploadLocalLogs failed:', error.message)
-              this.showToast('uploadLocalLogs failed')
+              console.error('[Whiteboard] disconnect failed:', error.message)
+              router.back()
             })
           })
-        }
-        .width('100%')
       }
-      .height(180)
       .width('100%')
-      .backgroundColor('#CCFFFFFF')
-      .margin({ top: 20 })
+      .hitTestBehavior(HitTestMode.Transparent)
+
+      if (this.writeable) {
+        Scroll() {
+          Flex({ wrap: FlexWrap.Wrap }) {
+            TestButton("Clean", async () => {
+              this.whiteboardController.cleanScene()
+            })
+
+            TestButton("Colors", async () => {
+              this.colorIndex = ++this.colorIndex % this.colors.length
+              this.whiteboardController.setStrokeColor(this.colors[this.colorIndex])
+            })
+
+            TestButton("Appliances", async () => {
+              this.applianceIndex = ++this.applianceIndex % this.appliances.length
+              const pair = this.appliances[this.applianceIndex] as [Appliance, ShapeType]
+              this.whiteboardController.setAppliance(pair[0], pair[1])
+            })
+
+            TestButton("Selector", async () => {
+              this.whiteboardController.setAppliance(Appliance.SELECTOR)
+            })
+
+            TestButton("Copy&Paste", async () => {
+              this.whiteboardController.copy()
+              this.whiteboardController.paste()
+            })
+
+            TestButton("MediaPlayer", async () => {
+              const param: WindowAppParam = {
+                kind: "MediaPlayer",
+                options: { title: "player" } as ESObject,
+                attributes: { src: "https://white-pan.oss-cn-shanghai.aliyuncs.com/101/oceans.mp4" } as ESObject,
+              }
+              await this.whiteboardController.addApp(param)
+            })
+
+            TestButton("DocsViewer", async () => {
+              const json: string =
+                "[{\"name\":\"1\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/1.png\",\"width\":714.0}},{\"name\":\"2\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/2.png\",\"width\":714.0}},{\"name\":\"3\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/3.png\",\"width\":714.0}},{\"name\":\"4\",\"ppt\":{\"height\":1010.0,\"src\":\"https://convertcdn.netless.link/staticConvert/0764816000c411ecbfbbb9230f6dd80f/4.png\",\"width\":714.0}}]";
+
+              const scenes = JSON.parse(json) as Scene[]
+              const scenePath = "/static"
+              const title = "Doc"
+
+              const param: WindowAppParam = {
+                kind: "DocsViewer",
+                options: { scenePath, scenes, title } as ESObject,
+              }
+              this.whiteboardController.addApp(param)
+            })
+
+            TestButton("NewDynamic", async () => {
+              const prefixUrl = "https://conversion-demo-cn.oss-cn-hangzhou.aliyuncs.com/demo/dynamicConvert";
+              const taskUuid = "3e3a2b8845194f998e6e05adab70e1a1";
+
+              const scenePath = `/dynamic/${taskUuid}`
+              const title = "Dynamic"
+
+              const param: WindowAppParam = {
+                kind: "Slide",
+                options: { scenePath, title } as ESObject,
+                attributes: { taskId: taskUuid, url: prefixUrl } as ESObject
+              }
+              this.whiteboardController.addApp(param)
+            })
+
+            TestButton("Presentation", async () => {
+              this.insertPresentationCourseware()
+            })
+
+            TestButton("ScalePage 2x", async () => {
+              this.dispatchScalePage(2.0)
+            })
+
+            TestButton("ScalePage 1x", async () => {
+              this.dispatchScalePage(1.0)
+            })
+
+            TestButton("CloseApp", async () => {
+              try {
+                const apps: Record<string, WindowAppSyncAttrs> = await this.whiteboardController.queryAllApps()
+                const lastKey = Object.keys(apps)[Object.keys(apps).length - 1]
+                this.whiteboardController.closeApp(lastKey)
+              } catch (e) {
+              }
+            })
+
+            TestButton("FocusApp", async () => {
+              try {
+                const apps: Record<string, WindowAppSyncAttrs> = await this.whiteboardController.queryAllApps()
+                const lastKey = Object.keys(apps)[Object.keys(apps).length - 1]
+                this.whiteboardController.focusApp(lastKey)
+              } catch (err) {
+                console.error(`Failed to focus app. message is ${err}`)
+              }
+            })
+
+            TestButton("AddPage", async () => {
+              this.whiteboardController.addPage({ after: true })
+              this.whiteboardController.nextPage()
+            })
+
+            TestButton("RemovePage", async () => {
+              this.whiteboardController.removePage()
+            })
+
+            TestButton("PrevPage", async () => {
+              this.dispatchPageEventAndResetScale("prevPage")
+            })
+
+            TestButton("NextPage", async () => {
+              this.dispatchPageEventAndResetScale("nextPage")
+            })
+
+            TestButton("LogState", async () => {
+              this.whiteboardController.getLocalLogState().then((state) => {
+                console.log('[Whiteboard] Local log state:', JSON.stringify(state))
+                this.showToast('getLocalLogState success')
+              }).catch((error: Error) => {
+                console.error('[Whiteboard] getLocalLogState failed:', error.message)
+                this.showToast('getLocalLogState failed')
+              })
+            })
+
+            TestButton("UploadLogs", async () => {
+              this.whiteboardController.uploadLocalLogs().then((result) => {
+                console.log('[Whiteboard] uploadLocalLogs:', JSON.stringify(result))
+                this.showToast('uploadLocalLogs success')
+              }).catch((error: Error) => {
+                console.error('[Whiteboard] uploadLocalLogs failed:', error.message)
+                this.showToast('uploadLocalLogs failed')
+              })
+            })
+          }
+          .width('100%')
+        }
+        .height(180)
+        .width('100%')
+        .backgroundColor('#CCFFFFFF')
+        .margin({ top: 20 })
+        .align(Alignment.Bottom)
+      }
     }
   }
 
