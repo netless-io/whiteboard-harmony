@@ -28,8 +28,11 @@ export interface LoggerOptions {
 }
 
 export interface BackgroundImageLoadOptions {
+  /** 背景图片加载重试次数。-1 表示无限重试（内部映射为 Infinity），取值范围为 -1 或 0~10。 */
   maxRetries?: number;
+  /** 背景图片加载超时时间，单位为毫秒，取值范围 1000~120000。 */
   timeoutMs?: number;
+  /** 背景图片加载失败后的重试间隔，单位为毫秒，取值范围 0~30000。 */
   retryIntervalMs?: number;
 }
 
