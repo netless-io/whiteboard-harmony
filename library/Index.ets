@@ -19,6 +19,8 @@ export {
   ReloadBackgroundImageResult,
   AppliancePluginOptions,
   LocalLogOptions,
+  SlideAppOptions,
+  SlideSyncEventQueuePolicy,
   VersionWorkerBlacklist,
   WhiteboardOptions,
   WorkerBlacklistByRuntime,
