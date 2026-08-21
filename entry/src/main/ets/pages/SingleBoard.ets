@@ -16,8 +16,8 @@ struct SingleBoard {
   @State writeable: boolean = true
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "cd1221809b8111f1aaeead87383431cf",
-    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg3Mzc4Mzk0OTY3Jm5vbmNlPTg4MzQzNjcwLTlkMjUtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPWZkYjI5MjRkNmMwYTkxMmMzZWQ5YmU5OGZmMTZlNjA3ZDQyYjgxMzljNzA4NTVjMzVkOGM5NzlmOGJjMmY0NTUmdXVpZD1jZDEyMjE4MDliODExMWYxYWFlZWFkODczODM0MzFjZg",
+    roomUuid: "",
+    roomToken: "",
     region: Region.CN_HZ,
     uid: "123",
     undoCacheScenesCount: 32

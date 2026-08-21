@@ -1,6 +1,6 @@
 # 版本更新记录
 
-## [Unreleased]
+## [0.2.4] - 2026.08.21
 
 - `WhiteboardCallbacks` 新增 `sdkSetupFail`，用于在 SDK 初始化失败时通知业务侧重新初始化并重新加房，并与 Android、iOS 的公开接口命名保持一致。
 - 公开导出 `SDKError`，提供初始化失败原因和 JS 堆栈信息。
