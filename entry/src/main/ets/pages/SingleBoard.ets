@@ -16,8 +16,8 @@ struct SingleBoard {
   @State writeable: boolean = true
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "056e9dd0a33e11ef844c9de7e0348444",
-    roomToken: "NETLESSROOM_YWs9eTBJOWsxeC1IVVo4VGh0NyZub25jZT0xNzMxNjY3MjI1MDY3MDAmcm9sZT0wJnNpZz0yZmE2NjFlNmY1Yjk4MDJkNWNkMDA4NjhhYjIyZjk3ZTY5YWEyNzU1N2U2ZjU4NmEyYWQ2OTE4ZmZiZTJhYThkJnV1aWQ9MDU2ZTlkZDBhMzNlMTFlZjg0NGM5ZGU3ZTAzNDg0NDQ",
+    roomUuid: "cd1221809b8111f1aaeead87383431cf",
+    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg3Mzc4Mzk0OTY3Jm5vbmNlPTg4MzQzNjcwLTlkMjUtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPWZkYjI5MjRkNmMwYTkxMmMzZWQ5YmU5OGZmMTZlNjA3ZDQyYjgxMzljNzA4NTVjMzVkOGM5NzlmOGJjMmY0NTUmdXVpZD1jZDEyMjE4MDliODExMWYxYWFlZWFkODczODM0MzFjZg",
     region: Region.CN_HZ,
     uid: "123",
     undoCacheScenesCount: 32
