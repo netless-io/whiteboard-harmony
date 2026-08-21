@@ -75,26 +75,39 @@ export class SdkJsInterface {
       if (!args) {
         return;
       }
-      const message = args as Record<string, Object>;
+      const message = typeof args === 'string'
+        ? parseJsonOrNull<Record<string, Object>>(args)
+        : args as Record<string, Object>;
+      if (!message) {
+        return;
+      }
       if (message.name === 'backgroundImageLoad') {
         try {
-          this.whiteboardCallbacks?.onBackgroundImageLoad?.(args as BackgroundImageLoadEvent);
+          const event = typeof args === 'string'
+            ? parseJsonOrNull<BackgroundImageLoadEvent>(args)
+            : args as BackgroundImageLoadEvent;
+          if (event) {
+            this.whiteboardCallbacks?.onBackgroundImageLoad?.(event);
+          }
         } catch (err) {
           Logger.error(`WhiteSDK onBackgroundImageLoad callback failed: ${String(err)}`);
         }
       }
       if (message.name === 'applianceInitLoadingChange') {
         try {
-          this.whiteboardCallbacks?.onApplianceInitLoadingChange?.(
-            args as ApplianceInitLoadingChangeEvent,
-          );
+          const event = typeof args === 'string'
+            ? parseJsonOrNull<ApplianceInitLoadingChangeEvent>(args)
+            : args as ApplianceInitLoadingChangeEvent;
+          if (event) {
+            this.whiteboardCallbacks?.onApplianceInitLoadingChange?.(event);
+          }
         } catch (err) {
           Logger.error('WhiteSDK onApplianceInitLoadingChange callback failed: ' + String(err));
         }
       }
-      this.whiteboardCallbacks?.onMessage?.(args);
-      this.postMessageCallback?.onMessage(args);
-      this.slideListener && this.handleSlideEvent(args as Record<string, Object>);
+      this.whiteboardCallbacks?.onMessage?.(message);
+      this.postMessageCallback?.onMessage(message);
+      this.slideListener && this.handleSlideEvent(message);
     } catch (err) {
       Logger.error(`WhiteSDK postMessage handle err: Code is ${err.code}, message is ${err.message}`)
     }
