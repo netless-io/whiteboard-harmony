@@ -135,12 +135,14 @@ function createWhiteboardOptions(): WhiteboardOptions {
     disableOperations: true,
     floatBar: true,
     timeout: 9000,
+    undoCacheScenesCount: 32,
     presentationAppOptions: {
       useScrollbar: true,
       debounceSync: false,
     },
     slideAppOptions: {
       enableScale: true,
+      syncEventQueuePolicy: 'latest-pending-render',
     },
     localLogOptions: {
       enabled: true,
@@ -263,6 +265,7 @@ export default function localUnitTest() {
       expect(roomOptions.disableOperations).assertTrue();
       expect(roomOptions.floatBar).assertTrue();
       expect(roomOptions.timeout).assertEqual(9000);
+      expect(roomOptions.undoCacheScenesCount).assertEqual(32);
       expect(JSON.stringify(roomOptions.userPayload)).assertEqual(JSON.stringify({ role: 'teacher' }));
       expect(roomOptions.windowParams?.fullscreen).assertTrue();
       expect(roomOptions.windowParams?.useBoxesStatus).assertTrue();
@@ -273,6 +276,7 @@ export default function localUnitTest() {
       expect(sdkOptions?.useScrollbar).assertTrue();
       expect(sdkOptions?.debounceSync).assertFalse();
       expect(createWhiteboardOptions().slideAppOptions?.enableScale).assertTrue();
+      expect(createWhiteboardOptions().slideAppOptions?.syncEventQueuePolicy).assertEqual('latest-pending-render');
       expect(createWhiteboardOptions().localLogOptions?.enabled).assertTrue();
       expect(createWhiteboardOptions().localLogOptions?.enabledUpload).assertFalse();
     });
@@ -306,6 +310,35 @@ export default function localUnitTest() {
         errorMessage = sdkError.message;
       }
       expect(errorMessage).assertContain('boom');
+      done();
+    });
+
+    it('disconnect_resolves_when_bridge_returns_no_payload', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+
+      const promise: Promise<object> = controller.disconnect();
+      bridge.respond(undefined);
+      await promise;
+
+      expect(bridge.lastCall().method).assertEqual('room.disconnect');
+      done();
+    });
+
+    it('detachWhiteboard_does_not_detach_a_newer_bridge', 0, async (done: Function) => {
+      const oldBridge: FakeBridge = new FakeBridge();
+      const newBridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(oldBridge as object as DsBridge);
+      controller.attachWhiteboard(newBridge as object as DsBridge);
+
+      controller.detachWhiteboard(oldBridge as object as DsBridge);
+      const promise: Promise<boolean> = controller.setWritable(true);
+      newBridge.respond(toJsonString(createWritableResult()));
+      await promise;
+
+      expect(newBridge.lastCall().method).assertEqual('room.setWritable');
       done();
     });
 

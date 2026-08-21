@@ -1,33 +1,59 @@
-import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
+import { describe, it, expect } from '@ohos/hypium';
+import { RoomPhase } from '@shengwang/whiteboard';
+import { RoomPhaseGuard, RoomPhaseGuardResult } from '../main/ets/RoomPhaseGuard';
 
 export default function localUnitTest() {
-  describe('localUnitTest', () => {
-    // Defines a test suite. Two parameters are supported: test suite name and test suite function.
-    beforeAll(() => {
-      // Presets an action, which is performed only once before all test cases of the test suite start.
-      // This API supports only one parameter: preset action function.
+  describe('room_phase_guard_unit_tests', () => {
+    it('reconnecting_shows_loading_without_rebuilding_room', 0, () => {
+      const guard: RoomPhaseGuard = new RoomPhaseGuard();
+      const result: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.RECONNECTING);
+
+      expect(result.showLoading).assertTrue();
+      expect(result.shouldRebuildRoom).assertFalse();
     });
-    beforeEach(() => {
-      // Presets an action, which is performed before each unit test case starts.
-      // The number of execution times is the same as the number of test cases defined by **it**.
-      // This API supports only one parameter: preset action function.
+
+    it('connected_hides_loading_and_resets_rebuild_state', 0, () => {
+      const guard: RoomPhaseGuard = new RoomPhaseGuard();
+      guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+
+      const connected: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.CONNECTED);
+      const disconnectedAgain: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+
+      expect(connected.showLoading).assertFalse();
+      expect(disconnectedAgain.shouldRebuildRoom).assertTrue();
     });
-    afterEach(() => {
-      // Presets a clear action, which is performed after each unit test case ends.
-      // The number of execution times is the same as the number of test cases defined by **it**.
-      // This API supports only one parameter: clear action function.
+
+    it('disconnect_phases_trigger_only_one_concurrent_rebuild', 0, () => {
+      const guard: RoomPhaseGuard = new RoomPhaseGuard();
+      const disconnecting: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTING);
+      const disconnected: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+
+      expect(disconnecting.showLoading).assertTrue();
+      expect(disconnecting.shouldRebuildRoom).assertTrue();
+      expect(disconnected.shouldRebuildRoom).assertFalse();
     });
-    afterAll(() => {
-      // Presets a clear action, which is performed after all test cases of the test suite end.
-      // This API supports only one parameter: clear action function.
+
+    it('reconnect_watchdog_retries_until_connected', 0, () => {
+      const guard: RoomPhaseGuard = new RoomPhaseGuard();
+      guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+
+      const timeout: RoomPhaseGuardResult = guard.onReconnectTimeout();
+
+      expect(timeout.showLoading).assertTrue();
+      expect(timeout.shouldRebuildRoom).assertTrue();
     });
-    it('assertContain', 0, () => {
-      // Defines a test case. This API supports three parameters: test case name, filter parameter, and test case function.
-      let a = 'abc';
-      let b = 'b';
-      // Defines a variety of assertion methods, which are used to declare expected boolean conditions.
-      expect(a).assertContain(b);
-      expect(a).assertEqual(a);
+
+    it('manual_exit_suppresses_disconnect_rebuild_and_watchdog', 0, () => {
+      const guard: RoomPhaseGuard = new RoomPhaseGuard();
+      guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+      guard.beginManualExit();
+
+      const disconnected: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTED);
+      const timeout: RoomPhaseGuardResult = guard.onReconnectTimeout();
+
+      expect(disconnected.showLoading).assertFalse();
+      expect(disconnected.shouldRebuildRoom).assertFalse();
+      expect(timeout.shouldRebuildRoom).assertFalse();
     });
   });
 }

@@ -1,19 +1,23 @@
 import { PresentationAppOptions, Region, WindowParams } from './Types';
 import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
+export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
+
 export interface SlideAppOptions {
   /** 是否允许缩放 Slide 内容，默认 false */
   enableScale?: boolean;
-  /** 渲染分辨倍率，默认 1 */
+  /** 渲染分辨倍率，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
   resolution?: number;
-  /** 取值范围 0~4 */
+  /** 取值范围 0~4，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
   maxResolutionLevel?: number;
-  /** 最小 fps，默认 25 */
+  /** 最小 fps，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
   minFPS?: number;
-  /** 最大 fps，默认 40 */
+  /** 最大 fps，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
   maxFPS?: number;
   /** 是否开启全局点击功能，默认 true */
   enableGlobalClick?: boolean;
+  /** Slide 同步事件队列策略；未设置时由 Slide 使用 fifo */
+  syncEventQueuePolicy?: SlideSyncEventQueuePolicy;
 }
 
 export interface LocalLogOptions {
@@ -161,6 +165,8 @@ export interface WhiteboardOptions {
   disableOperations?: boolean;
   floatBar?: boolean;
   timeout?: number;
+  /** 撤销/重做最多保留的场景缓存数量 */
+  undoCacheScenesCount?: number;
   callbacks?: WhiteboardCallbacks;
   backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }
@@ -190,6 +196,7 @@ export interface RoomOptions {
   floatBar?: boolean;
   disableCameraTransform?: boolean;
   timeout?: number;
+  undoCacheScenesCount?: number;
   windowParams?: WindowParams;
   appliancePluginOptions?: AppliancePluginOptions;
 }

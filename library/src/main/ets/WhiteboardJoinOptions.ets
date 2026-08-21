@@ -13,6 +13,7 @@ export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
     disableOperations: options.disableOperations,
     floatBar: options.floatBar,
     timeout: options.timeout,
+    undoCacheScenesCount: options.undoCacheScenesCount,
     windowParams: options.windowParams,
     appliancePluginOptions: options.appliancePluginOptions,
   };

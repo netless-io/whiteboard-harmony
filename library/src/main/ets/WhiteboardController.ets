@@ -26,6 +26,9 @@ import { SDKError } from './JsInterfaces';
 import { ColorMetrics } from '@kit.ArkUI';
 import { HasBackgroundImageParams, ReloadBackgroundImageParams, ReloadBackgroundImageResult } from './WhiteboardOptions';
 
+class EmptyDisconnectResult {
+}
+
 export class WhiteboardController {
   private whiteboard?: DsBridge
   private writable = false
@@ -38,7 +41,9 @@ export class WhiteboardController {
     this.whiteboard = whiteboard
   }
   detachWhiteboard = (whiteboard: DsBridge) => {
-    this.whiteboard = undefined
+    if (this.whiteboard === whiteboard) {
+      this.whiteboard = undefined
+    }
   }
 
   private rejectOnBridgeMissing(reject: (reason: Error) => void): boolean {
@@ -266,9 +271,23 @@ export class WhiteboardController {
         return;
       }
       this.whiteboard?.callHandler("room.disconnect", [], (result: object | string | boolean | undefined) => {
-        const disconnectResult = this.parseJsonResult<object>(result, reject);
-        if (disconnectResult) {
-          resolve(disconnectResult)
+        if (typeof result === 'string') {
+          const sdkError = SDKError.promiseError(result)
+          if (sdkError) {
+            reject(new Error(sdkError.toString()))
+            return
+          }
+          try {
+            resolve(JSON.parse(result) as object)
+          } catch (error) {
+            reject(error as Error)
+          }
+          return
+        }
+        if (typeof result === 'object') {
+          resolve(result)
+        } else {
+          resolve(new EmptyDisconnectResult())
         }
       });
     });

@@ -6,16 +6,20 @@ import {
   AppliancePluginOptions,
   BackgroundImageLoadEvent,
   Region,
+  RoomPhase,
   ShapeType,
   Whiteboard,
   WhiteboardCallbacks,
   WhiteboardController,
   WhiteboardOptions,
 } from '@shengwang/whiteboard'
+import { RoomPhaseGuard, RoomPhaseGuardResult } from '../RoomPhaseGuard'
+
+const ROOM_REBUILD_DELAY_MS: number = 300
+const ROOM_RECONNECT_WATCHDOG_MS: number = 50000
 
 const demoAppliancePluginOptions: AppliancePluginOptions = {
   extras: {
-    useWorker: 'mainThread',
     useSimple: true,
     useBackgroundThread: true,
     canvasOpt: {
@@ -62,15 +66,21 @@ const demoAppliancePluginOptions: AppliancePluginOptions = {
 @Component
 struct MultipleBoard {
   @State writeable: boolean = false
+  @State whiteboardMounted: boolean = true
+  @State roomLoading: boolean = true
+  private roomPhaseGuard: RoomPhaseGuard = new RoomPhaseGuard()
+  private rebuildTimer: number = -1
+  private reconnectWatchdogTimer: number = -1
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
     roomUuid: "cd1221809b8111f1aaeead87383431cf",
-    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg3MTk4MTIyMTI2Jm5vbmNlPWNkMzdhYWUwLTliODEtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPTExNTk0NTVmMTVkYjE5MmY0NDgyMmVmYTlkNDQxNjBmODM3ZTVhNGQwYzRkNzlhNjc4MTFlNzAxZjUwODhhNmMmdXVpZD1jZDEyMjE4MDliODExMWYxYWFlZWFkODczODM0MzFjZg",
+    roomToken: "NETLESSROOM_YWs9VWtNUk92M1JIN2I2Z284dCZleHBpcmVBdD0xNzg3Mjg2MzQwNTkzJm5vbmNlPTMzODU3NjEwLTljNGYtMTFmMS1iYzM4LWQ3Yjg5YzgwZTNlMSZyb2xlPTEmc2lnPTgzM2Y3NzhjNWIwNDFkZGUzOGE5NmM2NGM0NDgxZjM1NDUyZmQzZWUxNmY5MDQ2ZjU3MWYxZmE5NGMzYTg1ZTEmdXVpZD1jZDEyMjE4MDliODExMWYxYWFlZWFkODczODM0MzFjZg",
     region: Region.CN_HZ,
     uid: "123",
     useMultiViews: true,
     enableAppliancePlugin: true,
     writable: false,
+    undoCacheScenesCount: 32,
     backgroundImageLoadOptions: {
       maxRetries: 3,
     },
@@ -80,12 +90,9 @@ struct MultipleBoard {
       enabledUpload: true,
     },
     slideAppOptions: {
-      resolution: 1,
-      maxResolutionLevel: 2,
-      minFPS: 5,
-      maxFPS: 15,
       enableGlobalClick: false,
       enableScale: true,
+      syncEventQueuePolicy: 'latest-pending-render',
     },
     presentationAppOptions: {
       maxCameraScale: 4,
@@ -108,12 +115,14 @@ struct MultipleBoard {
       console.log('[Whiteboard] appliance init loading change:', JSON.stringify(event))
       this.showToast(`appliance ${event.phase} ${event.status}`)
     })
-    .setOnRoomPhaseChanged((roomPhase) => {
+    .setOnRoomPhaseChanged((roomPhase: RoomPhase) => {
       console.log('[Whiteboard] Room phase changed:', roomPhase)
       this.showToast(`room phase ${roomPhase}`)
+      this.handleRoomPhaseChanged(roomPhase)
     })
     .setOnRoomReady(() => {
       // 此时房间状态有效，如果需要在加入房间时候操作，在此处处理
+      this.writeable = this.whiteboardController.getWritable()
     })
     .setOnRoomStateChanged((roomState) => {
       console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState))
@@ -140,9 +149,28 @@ struct MultipleBoard {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      Whiteboard({ options: this.whiteboardOptions, controller: this.whiteboardController, callbacks: this.callbacks })
+      if (this.whiteboardMounted) {
+        Whiteboard({ options: this.whiteboardOptions, controller: this.whiteboardController, callbacks: this.callbacks })
+          .width('100%')
+          .height('100%')
+      }
+
+      if (this.roomLoading) {
+        Column({ space: 12 }) {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+            .color('#FFFFFF')
+          Text('正在连接白板...')
+            .fontSize(16)
+            .fontColor('#FFFFFF')
+        }
         .width('100%')
         .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .backgroundColor('#66000000')
+        .hitTestBehavior(HitTestMode.Block)
+      }
 
       Row() {
         Button(this.writeable ? '移除可写' : '获取可写')
@@ -169,6 +197,7 @@ struct MultipleBoard {
           .backgroundColor('#F5655C')
           .margin({ right: 10, top: 10 })
           .onClick(() => {
+            this.beginManualExit()
             this.whiteboardController.disconnect().then(() => {
               console.log('[Whiteboard] disconnect success')
               router.back()
@@ -181,7 +210,7 @@ struct MultipleBoard {
       .width('100%')
       .hitTestBehavior(HitTestMode.Transparent)
 
-      if (this.writeable) {
+      if (this.writeable && !this.roomLoading) {
         Column() {
           List({ space: 8 }) {
             ListItem() {
@@ -231,6 +260,71 @@ struct MultipleBoard {
         .justifyContent(FlexAlign.End)
         .hitTestBehavior(HitTestMode.Transparent)
       }
+
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.beginManualExit()
+  }
+
+  private handleRoomPhaseChanged(roomPhase: RoomPhase): void {
+    const result: RoomPhaseGuardResult = this.roomPhaseGuard.onPhaseChanged(roomPhase)
+    this.roomLoading = result.showLoading
+
+    if (roomPhase === RoomPhase.CONNECTED) {
+      this.clearReconnectWatchdog()
+    }
+    if (result.shouldRebuildRoom) {
+      this.rebuildRoom()
+    }
+  }
+
+  private rebuildRoom(): void {
+    if (this.roomPhaseGuard.isManualExit()) {
+      return
+    }
+
+    this.clearRebuildTimer()
+    this.clearReconnectWatchdog()
+    this.whiteboardMounted = false
+    this.rebuildTimer = setTimeout(() => {
+      this.rebuildTimer = -1
+      if (this.roomPhaseGuard.isManualExit()) {
+        return
+      }
+      console.info('[Whiteboard] rebuilding room with a new Whiteboard instance')
+      this.whiteboardMounted = true
+      this.reconnectWatchdogTimer = setTimeout(() => {
+        this.reconnectWatchdogTimer = -1
+        const result: RoomPhaseGuardResult = this.roomPhaseGuard.onReconnectTimeout()
+        this.roomLoading = result.showLoading
+        if (result.shouldRebuildRoom) {
+          console.warn('[Whiteboard] reconnect watchdog timed out, retrying')
+          this.rebuildRoom()
+        }
+      }, ROOM_RECONNECT_WATCHDOG_MS)
+    }, ROOM_REBUILD_DELAY_MS)
+  }
+
+  private beginManualExit(): void {
+    this.roomPhaseGuard.beginManualExit()
+    this.clearRebuildTimer()
+    this.clearReconnectWatchdog()
+    this.roomLoading = false
+  }
+
+  private clearRebuildTimer(): void {
+    if (this.rebuildTimer !== -1) {
+      clearTimeout(this.rebuildTimer)
+      this.rebuildTimer = -1
+    }
+  }
+
+  private clearReconnectWatchdog(): void {
+    if (this.reconnectWatchdogTimer !== -1) {
+      clearTimeout(this.reconnectWatchdogTimer)
+      this.reconnectWatchdogTimer = -1
     }
   }
 

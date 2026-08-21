@@ -53,6 +53,10 @@ export struct Whiteboard {
     })
   }
 
+  aboutToDisappear(): void {
+    this.controller.detachWhiteboard(this.dsBridge)
+  }
+
   build() {
     Column() {
       Web({ src: $rawfile("whiteboard/index.html"), controller: this.webController })
