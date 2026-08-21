@@ -1,5 +1,9 @@
 # 版本更新记录
 
+## [0.2.5] - 2026.08.21
+
+- 修复 Harmony Bridge 回调参数为 JSON 字符串时无法正确解析的问题，确保 `onBackgroundImageLoad`、`onApplianceInitLoadingChange`、`onMessage` 和 Slide 错误事件能够正常分发。
+
 ## [0.2.4] - 2026.08.21
 
 - `WhiteboardCallbacks` 新增 `sdkSetupFail`，用于在 SDK 初始化失败时通知业务侧重新初始化并重新加房，并与 Android、iOS 的公开接口命名保持一致。
