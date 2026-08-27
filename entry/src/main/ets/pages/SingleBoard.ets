@@ -34,6 +34,9 @@ struct SingleBoard {
       // 此时房间状态有效，如果需要在加入房间时候操作，在此处处理
     })
     .setOnRoomStateChanged((roomState) => console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState)))
+    .setOnSlidePageStateChanged((appId: string, page: number, pageCount: number) => {
+      console.info('[Whiteboard] onSlidePageStateChanged:', JSON.stringify({ appId, page, pageCount }))
+    })
 
   colorIndex = -1
   colors: string[] = [

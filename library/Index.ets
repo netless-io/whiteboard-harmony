@@ -43,6 +43,8 @@ export {
   RoomState,
   Scene,
   PptPage,
+  SlideErrorType,
+  SlideListener,
   BuiltinAppOptions,
   PresentationAppOptions,
   PresentationViewport,

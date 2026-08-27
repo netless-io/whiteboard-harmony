@@ -127,6 +127,9 @@ struct MultipleBoard {
     .setOnRoomStateChanged((roomState) => {
       console.log('[Whiteboard] Room state changed:', JSON.stringify(roomState))
     })
+    .setOnSlidePageStateChanged((appId: string, page: number, pageCount: number) => {
+      console.info('[Whiteboard] onSlidePageStateChanged:', JSON.stringify({ appId, page, pageCount }))
+    })
     .setOnBackgroundImageLoad(async (event: BackgroundImageLoadEvent) => {
       console.log('[Whiteboard] backgroundImageLoad:', JSON.stringify(event))
       if (event.state !== 'failed') {

@@ -57,6 +57,29 @@ export class SdkJsInterface {
       handler.complete(url);
     }
   };
+  slidePageStateChanged = (args: string | object): void => {
+    const jsonObject: Record<string, Object> | null = typeof args === 'string'
+      ? parseJsonOrNull<Record<string, Object>>(args)
+      : args as Record<string, Object>;
+    if (!jsonObject) {
+      Logger.error('WhiteSDK slidePageStateChanged received invalid JSON');
+      return;
+    }
+
+    const appId = jsonObject.appId;
+    const page = jsonObject.page;
+    const pageCount = jsonObject.pageCount;
+    if (typeof appId !== 'string' || appId.length === 0
+      || typeof page !== 'number' || !Number.isInteger(page) || page < 1
+      || typeof pageCount !== 'number' || !Number.isInteger(pageCount) || pageCount < 1) {
+      Logger.error('WhiteSDK slidePageStateChanged received invalid payload');
+      return;
+    }
+
+    Logger.info(`WhiteSDK slidePageStateChanged received ${JSON.stringify({ appId, page, pageCount })}`);
+    this.slideListener?.onSlidePageStateChanged?.(appId, page, pageCount);
+    this.whiteboardCallbacks?.onSlidePageStateChanged?.(appId, page, pageCount);
+  };
   throwError = (args: object): void => {
     Logger.info(`WhiteSDK throwError: ${args}`);
     this.whiteboardCallbacks?.throwError?.(args);

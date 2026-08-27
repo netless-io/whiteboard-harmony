@@ -14,6 +14,8 @@ import {
   RoomState,
   Scene,
   SceneState,
+  SlideErrorType,
+  SlideListener,
   ViewMode,
   WindowDocsEvent,
   WindowParams,
@@ -80,6 +82,23 @@ interface MagixPayload {
 }
 
 interface HighFrequencyPayload extends EventEntry {
+}
+
+interface SlidePageStatePayload {
+  appId: string
+  page: number
+  pageCount: number
+}
+
+class TestSlideListener implements SlideListener {
+  onSlidePageStateChanged?: (appId: string, page: number, pageCount: number) => void
+
+  slideUrlInterrupter(url: string, complete: (result: string) => void): void {
+    complete(url);
+  }
+
+  onSlideError(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void {
+  }
 }
 
 class FakeBridge {
@@ -588,6 +607,56 @@ export default function localUnitTest() {
       expect(setupError?.message).assertEqual('invalid app identifier');
       expect(setupError?.jsStack).assertEqual('setup stack');
       expect(loggerCallCount).assertEqual(0);
+    });
+
+    it('SdkJsInterface_forwards_slide_page_state_changed', 0, () => {
+      let callbackAppId: string = '';
+      let callbackPage: number = 0;
+      let callbackPageCount: number = 0;
+      const slideListener: TestSlideListener = new TestSlideListener();
+      slideListener.onSlidePageStateChanged = (appId: string, page: number, pageCount: number) => {
+        callbackAppId = appId;
+        callbackPage = page;
+        callbackPageCount = pageCount;
+      };
+      let callbackFromWhiteboard: number = 0;
+      const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
+        .setOnSlidePageStateChanged(() => {
+          callbackFromWhiteboard += 1;
+        });
+      const sdkJsInterface: SdkJsInterface = new SdkJsInterface(callbacks);
+      sdkJsInterface.setSlideListener(slideListener);
+
+      const payload: SlidePageStatePayload = {
+        appId: 'Slide-app-1',
+        page: 2,
+        pageCount: 8,
+      };
+      sdkJsInterface.slidePageStateChanged(toJsonString(payload));
+
+      expect(callbackAppId).assertEqual('Slide-app-1');
+      expect(callbackPage).assertEqual(2);
+      expect(callbackPageCount).assertEqual(8);
+      expect(callbackFromWhiteboard).assertEqual(1);
+    });
+
+    it('SdkJsInterface_ignores_invalid_slide_page_state_payload', 0, () => {
+      let callbackCount: number = 0;
+      const slideListener: TestSlideListener = new TestSlideListener();
+      slideListener.onSlidePageStateChanged = () => {
+        callbackCount += 1;
+      };
+      const sdkJsInterface: SdkJsInterface = new SdkJsInterface();
+      sdkJsInterface.setSlideListener(slideListener);
+
+      const payload: SlidePageStatePayload = {
+        appId: 'Slide-app-1',
+        page: 0,
+        pageCount: 8,
+      };
+      sdkJsInterface.slidePageStateChanged(toJsonString(payload));
+
+      expect(callbackCount).assertEqual(0);
     });
   });
 }

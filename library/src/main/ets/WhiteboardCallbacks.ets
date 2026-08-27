@@ -42,6 +42,11 @@ export class WhiteboardCallbacks {
   onApplianceInitLoadingChange?: (event: ApplianceInitLoadingChangeEvent) => void;
 
   /**
+   * Slide 页面状态变化回调，页码从 1 开始。
+   */
+  onSlidePageStateChanged?: (appId: string, page: number, pageCount: number) => void;
+
+  /**
    * 日志回调函数，用于记录日志。
    * @param args 日志信息对象
    */
@@ -131,6 +136,13 @@ export class WhiteboardCallbacks {
     callback: (event: ApplianceInitLoadingChangeEvent) => void,
   ): WhiteboardCallbacks {
     this.onApplianceInitLoadingChange = callback;
+    return this;
+  }
+
+  setOnSlidePageStateChanged(
+    callback: (appId: string, page: number, pageCount: number) => void,
+  ): WhiteboardCallbacks {
+    this.onSlidePageStateChanged = callback;
     return this;
   }
 

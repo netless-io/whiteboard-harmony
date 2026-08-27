@@ -677,6 +677,17 @@ export interface SlideListener {
    * Slide 加载错误回调。
    */
   onSlideError(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void;
+
+  /**
+   * Slide 页面状态变化回调。
+   *
+   * <p>当多窗口 Slide App 页面索引或页面数量变化时触发。页码从 1 开始。
+   *
+   * @param appId SlideApp 的窗口 ID。
+   * @param page 当前页码，从 1 开始。
+   * @param pageCount 页面总数。
+   */
+  onSlidePageStateChanged?(appId: string, page: number, pageCount: number): void;
 }
 
 export enum SlideErrorType {
