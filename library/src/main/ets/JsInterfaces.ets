@@ -170,16 +170,19 @@ export class SdkJsInterface {
   onPPTMediaPause = (args: object): void => {
     Logger.info("onPPTMediaPause called");
   };
-  setupFail = (args: object): void => {
+  setupFail = (args: object | string): void => {
     const jsonObject = this.convertToJsonOrNull(args);
     if (jsonObject) {
       const sdkError = SDKError.parseError(jsonObject as SDKErrorPayload);
       this.whiteboardCallbacks?.sdkSetupFail?.(sdkError);
     }
   };
-  private convertToJsonOrNull = (args: object): object | null => {
+  private convertToJsonOrNull = (args: object | string): object | null => {
+    if (typeof args === 'object') {
+      return args;
+    }
     try {
-      return JSON.parse(String(args));
+      return JSON.parse(args);
     } catch (e) {
       Logger.error("convertToJson exception", e);
       return null;

@@ -1,5 +1,11 @@
 # 版本更新记录
 
+## [0.2.6] - 2026.08.27
+
+- 新增 Slide 页面状态变化回调 `onSlidePageStateChanged`，透传 `appId`、`page` 和 `pageCount`，页码从 1 开始。
+- 修复 `setupFail` 回调对 Bridge JSON 字符串和对象参数的兼容处理。
+- 修复 Harmony library 单元测试中的 ArkTS 类型错误，完整测试套件通过。
+
 ## [0.2.5] - 2026.08.21
 
 - 修复 Harmony Bridge 回调参数为 JSON 字符串时无法正确解析的问题，确保 `onBackgroundImageLoad`、`onApplianceInitLoadingChange`、`onMessage` 和 Slide 错误事件能够正常分发。

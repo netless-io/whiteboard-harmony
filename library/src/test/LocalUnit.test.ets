@@ -3,7 +3,7 @@ import { WhiteboardController } from '../main/ets/WhiteboardController';
 import { DsBridge } from '../main/ets/DsBridge';
 import { RoomJsInterface, SdkJsInterface } from '../main/ets/JsInterfaces';
 import { SDKError } from '../main/ets/SDKError';
-import { WhiteboardCallbacks } from '../main/ets/WhiteboardCallbacks';
+import { BackgroundImageSource, WhiteboardCallbacks } from '../main/ets/WhiteboardCallbacks';
 import { buildRoomOptions } from '../main/ets/WhiteboardJoinOptions';
 import {
   EventEntry,
@@ -21,7 +21,7 @@ import {
   WindowParams,
   WindowPrefersColorScheme,
 } from '../main/ets/Types';
-import { RoomOptions, WhiteboardOptions } from '../main/ets/WhiteboardOptions';
+import { HasBackgroundImageParams, RoomOptions, WhiteboardOptions } from '../main/ets/WhiteboardOptions';
 
 class BridgeCallRecord {
   method: string
@@ -88,6 +88,21 @@ interface SlidePageStatePayload {
   appId: string
   page: number
   pageCount: number
+}
+
+interface LocalLogStatePayload {
+  enabled: boolean
+  enabledUpload: boolean
+}
+
+interface UploadLocalLogsPayload {
+  status: string
+  reason: string
+}
+
+interface SetupFailPayload {
+  message: string
+  jsStack: string
 }
 
 class TestSlideListener implements SlideListener {
@@ -389,13 +404,15 @@ export default function localUnitTest() {
 
       const statePromise: Promise<object> = controller.getLocalLogState();
       expect(bridge.lastCall().method).assertEqual('sdk.getLocalLogState');
-      bridge.respond(toJsonString({ enabled: true, enabledUpload: false }));
+      const statePayload: LocalLogStatePayload = { enabled: true, enabledUpload: false };
+      bridge.respond(toJsonString(statePayload));
       const state: object = await statePromise;
       expect(JSON.stringify(state)).assertEqual(JSON.stringify({ enabled: true, enabledUpload: false }));
 
       const uploadPromise: Promise<object> = controller.uploadLocalLogs();
       expect(bridge.lastCall().method).assertEqual('sdk.uploadLocalLogs');
-      bridge.respond(toJsonString({ status: 'skipped', reason: 'uploadDisabled' }));
+      const uploadPayload: UploadLocalLogsPayload = { status: 'skipped', reason: 'uploadDisabled' };
+      bridge.respond(toJsonString(uploadPayload));
       const uploadResult: object = await uploadPromise;
       expect(JSON.stringify(uploadResult)).assertEqual(JSON.stringify({ status: 'skipped', reason: 'uploadDisabled' }));
 
@@ -406,11 +423,11 @@ export default function localUnitTest() {
       const bridge: FakeBridge = new FakeBridge();
       const controller: WhiteboardController = new WhiteboardController();
       controller.attachWhiteboard(bridge as object as DsBridge);
-      const params = {
+      const params: HasBackgroundImageParams = {
         viewId: 'mainView',
         scenePath: '/scene-1',
         imageUrl: 'https://example.com/background.webp?token=value#fragment',
-        sources: ['appliance'],
+        sources: ['appliance' as BackgroundImageSource],
       };
 
       const promise: Promise<boolean> = controller.hasBackgroundImage(params);
@@ -429,7 +446,7 @@ export default function localUnitTest() {
         viewId: 'mainView',
         scenePath: '/scene-1',
         imageUrl: 'https://example.com/background.webp',
-        sources: ['appliance'],
+        sources: ['appliance' as BackgroundImageSource],
       });
       bridge.respond(toJsonString(createErrorWrapper()));
       let message: string = '';
@@ -602,7 +619,12 @@ export default function localUnitTest() {
       };
 
       const sdkJsInterface: SdkJsInterface = new SdkJsInterface(callbacks);
-      sdkJsInterface.setupFail(toJsonString({ message: 'invalid app identifier', jsStack: 'setup stack' }));
+      const setupFailPayload: SetupFailPayload = {
+        message: 'invalid app identifier',
+        jsStack: 'setup stack',
+      };
+      sdkJsInterface.setupFail(toJsonString(setupFailPayload));
+      sdkJsInterface.setupFail(setupFailPayload);
 
       expect(setupError?.message).assertEqual('invalid app identifier');
       expect(setupError?.jsStack).assertEqual('setup stack');
