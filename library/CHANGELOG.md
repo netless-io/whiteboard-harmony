@@ -1,5 +1,9 @@
 # 版本更新记录
 
+## [0.2.7] - 2026.08.27
+
+- 升级内嵌 `Whiteboard-bridge` 至提交 `f1dd751`，包含 `@netless/app-slide@0.2.103`。
+
 ## [0.2.6] - 2026.08.27
 
 - 新增 Slide 页面状态变化回调 `onSlidePageStateChanged`，透传 `appId`、`page` 和 `pageCount`，页码从 1 开始。

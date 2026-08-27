@@ -58,4 +58,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.6";
+export const VERSION = "0.2.7";
