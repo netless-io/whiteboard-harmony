@@ -112,7 +112,16 @@ setViewMode(viewMode: ViewMode): void
 
 ## 多窗口 API
 
-`WhiteboardOptions.windowParams` 支持配置多窗口本地显示参数。`WindowParams.useBoxesStatus` 用于开启每个窗口独立的状态管理；开启后窗口最大化、最小化状态会按窗口分别同步，同一房间内多端建议保持一致。
+`WhiteboardOptions.windowParams` 主要配置多窗口本地显示参数；其中 `originSize` 在实时房间可写端会重置并同步 MainView camera-size contract。`WindowParams.useBoxesStatus` 用于开启每个窗口独立的状态管理；开启后窗口最大化、最小化状态会按窗口分别同步，同一房间内多端建议保持一致。
+
+```typescript
+const windowParams = new WindowParams()
+  .setUseBoxesStatus(true)
+  .setOriginSize({ width: 1280, height: 900 })
+  .setPageScaleRange({ minScale: 0.5, maxScale: 4 });
+```
+
+`originSize` 是 MainView 的归一化参考尺寸；可写端首次设置或传入不同尺寸时，WindowManager 会重置并同步 MainView 的 origin/active camera-size contract。它不会隐式改写 Slide/Presentation App 参数。`pageScaleRange` 是可选的相对适配尺寸倍率范围，未配置的边界不施加业务限制。
 
 ### App
 
@@ -122,6 +131,31 @@ setViewMode(viewMode: ViewMode): void
 4. `queryApp`
 5. `queryAllApps`
 6. `dispatchDocsEvent`
+
+`dispatchDocsEvent` 统一控制 MainView、DocsViewer、Slide 和 Presentation，返回结构化的命令接收结果：
+
+```typescript
+const result: DispatchDocsEventResult = await whiteboardController.dispatchDocsEvent({
+  event: 'scalePage',
+  options: { target: 'mainView', scale: 1.5 },
+});
+
+if (!result.accepted) {
+  console.error(`${result.reason}: ${result.message}`);
+}
+```
+
+`target` 可为 `mainView` 或具体 appId，省略时跟随当前焦点且无焦点时回退 MainView；`page` 为 1-based。`scale` 是相对于适配尺寸的倍率，`1` 表示适配尺寸，不是底层 camera scale。DocsViewer 不支持 `scalePage`，会返回 `eventNotSupported` 和明确原因。
+
+可通过 `getPageState({ target })` 查询当前状态，并通过统一回调观察实际页码、相对倍率或异步命令失败：
+
+```typescript
+callbacks.setOnUnifiedPageStateChange((state: UnifiedPageStateChange) => {
+  console.info(`${state.target}: ${state.status}, ${state.changeType}`);
+});
+
+const state: UnifiedPageState = await whiteboardController.getPageState({ target: 'mainView' });
+```
 
 ### Page
 

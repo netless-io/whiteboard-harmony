@@ -4,6 +4,7 @@ import {
   RoomKickedReason,
   RoomPhase,
   RoomState,
+  UnifiedPageStateChange,
 } from './Types';
 import { SDKError } from './SDKError';
 
@@ -45,6 +46,8 @@ export class WhiteboardCallbacks {
    * Slide 页面状态变化回调，页码从 1 开始。
    */
   onSlidePageStateChanged?: (appId: string, page: number, pageCount: number) => void;
+  /** MainView, DocsViewer, Slide or Presentation page/scale state change. */
+  onUnifiedPageStateChange?: (state: UnifiedPageStateChange) => void;
 
   /**
    * 日志回调函数，用于记录日志。
@@ -143,6 +146,13 @@ export class WhiteboardCallbacks {
     callback: (appId: string, page: number, pageCount: number) => void,
   ): WhiteboardCallbacks {
     this.onSlidePageStateChanged = callback;
+    return this;
+  }
+
+  setOnUnifiedPageStateChange(
+    callback: (state: UnifiedPageStateChange) => void,
+  ): WhiteboardCallbacks {
+    this.onUnifiedPageStateChange = callback;
     return this;
   }
 

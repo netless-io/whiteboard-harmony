@@ -18,6 +18,8 @@ import {
   SlideListener,
   ViewMode,
   WindowDocsEvent,
+  DispatchDocsEventResult,
+  UnifiedPageStateChange,
   WindowParams,
   WindowPrefersColorScheme,
 } from '../main/ets/Types';
@@ -146,6 +148,8 @@ function createWindowParams(): WindowParams {
   return new WindowParams()
     .setFullscreen(true)
     .setUseBoxesStatus(true)
+    .setOriginSize({ width: 1280, height: 900 })
+    .setPageScaleRange({ minScale: 0.5, maxScale: 4 })
     .setBuiltinAppOptions({
       presentation: {
         useScrollbar: true,
@@ -273,7 +277,8 @@ function createHighFrequencyPayload(): HighFrequencyPayload[] {
 
 function createDocsEvent(): WindowDocsEvent {
   return {
-    event: 'nextPage',
+    event: 'scalePage',
+    options: { target: 'DocsViewer-1', scale: 2 },
   };
 }
 
@@ -376,7 +381,7 @@ export default function localUnitTest() {
       done();
     });
 
-    it('controller_forwards_text_and_docs_methods_to_bridge', 0, () => {
+    it('controller_forwards_text_and_docs_methods_to_bridge', 0, async (done: Function) => {
       const bridge: FakeBridge = new FakeBridge();
       const controller: WhiteboardController = new WhiteboardController();
       controller.attachWhiteboard(bridge as object as DsBridge);
@@ -390,11 +395,52 @@ export default function localUnitTest() {
       controller.setPrefersColorScheme(WindowPrefersColorScheme.Dark);
       expect(bridge.lastCall().method).assertEqual('room.setPrefersColorScheme');
 
-      controller.dispatchDocsEvent(createDocsEvent());
+      const docsResultPromise: Promise<DispatchDocsEventResult> = controller.dispatchDocsEvent(createDocsEvent());
       expect(bridge.lastCall().method).assertEqual('room.dispatchDocsEvent');
+      expect(JSON.stringify(bridge.lastCall().args)).assertEqual(JSON.stringify([
+        'scalePage',
+        { target: 'DocsViewer-1', scale: 2 },
+      ]));
+      bridge.respond(toJsonString({
+        accepted: false,
+        reason: 'eventNotSupported',
+        message: 'DocsViewer does not support scalePage',
+      }));
+      const docsResult: DispatchDocsEventResult = await docsResultPromise;
+      expect(docsResult.accepted).assertFalse();
+      if (!docsResult.accepted) {
+        expect(docsResult.reason).assertEqual('eventNotSupported');
+        expect(docsResult.message).assertEqual('DocsViewer does not support scalePage');
+      }
 
       controller.insertText(10, 12, 'abc');
       expect(bridge.lastCall().method).assertEqual('room.insertText');
+      done();
+    });
+
+    it('getPageState_forwards_target_and_parses_state', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+
+      const statePromise = controller.getPageState({ target: 'Presentation-1' });
+      expect(bridge.lastCall().method).assertEqual('room.getPageState');
+      expect(JSON.stringify(bridge.lastCall().args)).assertEqual(JSON.stringify([
+        { target: 'Presentation-1' },
+      ]));
+      bridge.respond(toJsonString({
+        target: 'Presentation',
+        appId: 'Presentation-1',
+        page: 2,
+        pageCount: 6,
+        scale: 1.5,
+      }));
+
+      const state = await statePromise;
+      expect(state.target).assertEqual('Presentation');
+      expect(state.appId).assertEqual('Presentation-1');
+      expect(state.scale).assertEqual(1.5);
+      done();
     });
 
     it('local_log_methods_forward_to_sdk_bridge', 0, async (done: Function) => {
@@ -660,6 +706,30 @@ export default function localUnitTest() {
       expect(callbackPage).assertEqual(2);
       expect(callbackPageCount).assertEqual(8);
       expect(callbackFromWhiteboard).assertEqual(1);
+    });
+
+    it('SdkJsInterface_forwards_unified_page_scale_state', 0, () => {
+      let received: UnifiedPageStateChange | undefined = undefined;
+      const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
+        .setOnUnifiedPageStateChange((state: UnifiedPageStateChange) => {
+          received = state;
+        });
+      const sdkJsInterface: SdkJsInterface = new SdkJsInterface(callbacks);
+      sdkJsInterface.unifiedPageStateChange(toJsonString({
+        target: 'DocsViewer',
+        appId: 'DocsViewer-1',
+        page: 2,
+        pageCount: 3,
+        scale: 1.25,
+        status: 'success',
+        changeType: 'scale',
+      }));
+
+      expect(received?.target).assertEqual('DocsViewer');
+      expect(received?.scale).assertEqual(1.25);
+      if (received?.status === 'success') {
+        expect(received.changeType).assertEqual('scale');
+      }
     });
 
     it('SdkJsInterface_ignores_invalid_slide_page_state_payload', 0, () => {

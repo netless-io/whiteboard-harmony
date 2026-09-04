@@ -517,6 +517,17 @@ export interface BuiltinAppOptions {
   presentation?: PresentationAppOptions;
 }
 
+export interface WindowOriginSize {
+  width: number;
+  height: number;
+}
+
+/** Optional page scale bounds relative to fitted content size. */
+export interface PageScaleRange {
+  minScale?: number;
+  maxScale?: number;
+}
+
 export class WindowParams {
   /**
    * 各个端本地显示多窗口内容时，高与宽比例，默认为 9:16
@@ -556,6 +567,10 @@ export class WindowParams {
   useBoxesStatus?: boolean;
   /** 本地内置 App 配置，不同步到远端 */
   builtinAppOptions?: BuiltinAppOptions;
+  /** MainView reference size. Slide/Presentation receive originSize through addApp attributes. */
+  originSize?: WindowOriginSize;
+  /** Optional relative scale bounds for dispatchDocsEvent scalePage. */
+  pageScaleRange?: PageScaleRange;
 
   setContainerSizeRatio(containerSizeRatio: number): WindowParams {
     this.containerSizeRatio = containerSizeRatio;
@@ -604,6 +619,16 @@ export class WindowParams {
 
   setBuiltinAppOptions(builtinAppOptions: BuiltinAppOptions): WindowParams {
     this.builtinAppOptions = builtinAppOptions;
+    return this;
+  }
+
+  setOriginSize(originSize: WindowOriginSize): WindowParams {
+    this.originSize = originSize;
+    return this;
+  }
+
+  setPageScaleRange(pageScaleRange: PageScaleRange): WindowParams {
+    this.pageScaleRange = pageScaleRange;
     return this;
   }
 }
@@ -657,8 +682,11 @@ export type WindowDocsEventType =
   | "scalePage";
 
 export interface WindowDocsEventOptions {
-  pageIndex?: number;
-  /** 缩放当前课件页，取值范围为 1 到 4，可传入小数。 */
+  /** `mainView` or a concrete DocsViewer/Slide/Presentation appId. */
+  target?: string;
+  /** 1-based page number. */
+  page?: number;
+  /** Scale relative to fitted content size. `1` means fitted size. */
   scale?: number;
 }
 
@@ -666,6 +694,62 @@ export interface WindowDocsEvent {
   event: WindowDocsEventType;
   options?: WindowDocsEventOptions;
 }
+
+export type DispatchDocsEventFailureReason =
+  | "invalidEvent"
+  | "invalidOptions"
+  | "targetNotFound"
+  | "targetNotSupported"
+  | "eventNotSupported"
+  | "notWritable"
+  | "stateUnavailable"
+  | "outOfRange"
+  | "commandFailed";
+
+export interface DispatchDocsEventAcceptedResult {
+  accepted: true;
+}
+
+export interface DispatchDocsEventRejectedResult {
+  accepted: false;
+  reason: DispatchDocsEventFailureReason;
+  message: string;
+}
+
+export type DispatchDocsEventResult =
+  | DispatchDocsEventAcceptedResult
+  | DispatchDocsEventRejectedResult;
+
+export interface WindowPageStateOptions {
+  /** `mainView` or a concrete DocsViewer/Slide/Presentation appId. */
+  target?: string;
+}
+
+export interface UnifiedPageState {
+  target: "mainView" | "DocsViewer" | "Slide" | "Presentation";
+  appId?: string;
+  page: number;
+  pageCount: number;
+  scale?: number;
+}
+
+export interface UnifiedPageStateObservation extends UnifiedPageState {
+  status: "pending" | "success";
+  changeType?: "page" | "scale";
+  mainView?: number;
+  presentation?: number;
+  view?: number;
+  slide?: number;
+}
+
+export interface UnifiedPageStateFailure extends UnifiedPageState {
+  status: "failure";
+  event: WindowDocsEventType;
+  reason: "commandFailed";
+  message?: string;
+}
+
+export type UnifiedPageStateChange = UnifiedPageStateObservation | UnifiedPageStateFailure;
 
 export interface SlideListener {
   /**

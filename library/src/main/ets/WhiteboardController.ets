@@ -15,6 +15,9 @@ import {
   toRoomPhase,
   ViewMode,
   WindowDocsEvent,
+  WindowPageStateOptions,
+  DispatchDocsEventResult,
+  UnifiedPageState,
   WindowAppParam,
   WindowAppSyncAttrs,
   WindowPrefersColorScheme,
@@ -763,16 +766,30 @@ export class WhiteboardController {
   /**
    * 控制多窗口文档翻页或步进。
    */
-  dispatchDocsEvent(event: WindowDocsEvent): Promise<boolean> {
-    return new Promise<boolean>((resolve, reject) => {
+  dispatchDocsEvent(event: WindowDocsEvent): Promise<DispatchDocsEventResult> {
+    return new Promise<DispatchDocsEventResult>((resolve, reject) => {
       if (this.rejectOnBridgeMissing(reject)) {
         return;
       }
       this.whiteboard?.callHandler("room.dispatchDocsEvent", [event.event, event.options ?? {}], (result: object | string | boolean | undefined) => {
-        if (typeof result === 'boolean') {
-          resolve(result);
-        } else {
-          reject(new Error("Expected boolean result, but got a different type"));
+        const parsed = this.parseJsonResult<DispatchDocsEventResult>(result, reject);
+        if (parsed) {
+          resolve(parsed);
+        }
+      });
+    });
+  }
+
+  /** Returns the current observable unified page state. */
+  getPageState(options?: WindowPageStateOptions): Promise<UnifiedPageState> {
+    return new Promise<UnifiedPageState>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.getPageState", [options ?? {}], (result: object | string | boolean | undefined) => {
+        const parsed = this.parseJsonResult<UnifiedPageState>(result, reject);
+        if (parsed) {
+          resolve(parsed);
         }
       });
     });

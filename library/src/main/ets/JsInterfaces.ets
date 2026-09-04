@@ -6,6 +6,7 @@ import {
   RoomState,
   SlideErrorType,
   SlideListener,
+  UnifiedPageStateChange,
   toRoomPhase,
 } from './Types';
 import {
@@ -79,6 +80,12 @@ export class SdkJsInterface {
     Logger.info(`WhiteSDK slidePageStateChanged received ${JSON.stringify({ appId, page, pageCount })}`);
     this.slideListener?.onSlidePageStateChanged?.(appId, page, pageCount);
     this.whiteboardCallbacks?.onSlidePageStateChanged?.(appId, page, pageCount);
+  };
+  unifiedPageStateChange = (args: string | object): void => {
+    const state = this.convertToJsonOrNull(args) as UnifiedPageStateChange | null;
+    if (state) {
+      this.whiteboardCallbacks?.onUnifiedPageStateChange?.(state);
+    }
   };
   throwError = (args: object): void => {
     Logger.info(`WhiteSDK throwError: ${args}`);

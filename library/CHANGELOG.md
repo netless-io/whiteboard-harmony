@@ -1,5 +1,10 @@
 # 版本更新记录
 
+## [Unreleased]
+
+- `dispatchDocsEvent` 扩展为 MainView、DocsViewer、Slide、Presentation 的统一异步入口，返回结构化接收结果；删除未发布的 `dispatchPageEvent` 草案命名。
+- 新增 `originSize`、`pageScaleRange`、`getPageState` 和 `onUnifiedPageStateChange` 契约。DocsViewer 不支持 `scalePage`，返回 `eventNotSupported` 和明确原因。
+
 ## [0.2.7] - 2026.08.27
 
 - 升级内嵌 `Whiteboard-bridge` 至提交 `f1dd751`，包含 `@netless/app-slide@0.2.103`。
