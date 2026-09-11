@@ -654,25 +654,10 @@ export class WhiteboardController {
    */
   addApp(appParam: WindowAppParam): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, this.resolveWindowAppAttributes(appParam)],
-        (result: object | string | boolean | undefined) => {
-          if (typeof result === 'string') {
-            resolve(result)
-          } else {
-            reject(new Error("Expected string result, but got a different type"));
-          }
-        })
-    });
-  }
-
-  /** Adds an app and resolves only after its Web setup has completed. */
-  addAppAndWaitForSetup(appParam: WindowAppParam): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
       if (this.rejectOnBridgeMissing(reject)) {
         return;
       }
-      this.whiteboard?.callHandler("room.addAppAndWaitForSetup",
-        [appParam.kind, appParam.options, this.resolveWindowAppAttributes(appParam)],
+      this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, this.resolveWindowAppAttributes(appParam)],
         (result: object | string | boolean | undefined) => {
           if (typeof result !== 'string') {
             reject(new Error("Expected string result, but got a different type"));
@@ -684,7 +669,7 @@ export class WhiteboardController {
           } else {
             resolve(result);
           }
-        });
+        })
     });
   }
 

@@ -481,7 +481,7 @@ export default function localUnitTest() {
       done();
     });
 
-    it('window_app_origin_size_and_new_controls_use_bridge_contract', 0, async (done: Function) => {
+    it('window_app_origin_size_and_setup_aware_add_use_bridge_contract', 0, async (done: Function) => {
       const bridge: FakeBridge = new FakeBridge();
       const controller: WhiteboardController = new WhiteboardController();
       controller.attachWhiteboard(bridge as object as DsBridge);
@@ -495,8 +495,8 @@ export default function localUnitTest() {
         originSize: originSize,
       };
 
-      const appPromise: Promise<string> = controller.addAppAndWaitForSetup(appParam);
-      expect(bridge.lastCall().method).assertEqual('room.addAppAndWaitForSetup');
+      const appPromise: Promise<string> = controller.addApp(appParam);
+      expect(bridge.lastCall().method).assertEqual('room.addApp');
       const resolvedAttributes: ResolvedTestWindowAppAttributes = {
         taskId: 'task-1',
         originSize: originSize,
@@ -511,6 +511,16 @@ export default function localUnitTest() {
 
       controller.fitOriginSizeAndCamera();
       expect(bridge.lastCall().method).assertEqual('room.fitOriginSizeAndCamera');
+
+      const failedAppPromise: Promise<string> = controller.addApp(appParam);
+      bridge.respond(toJsonString(createErrorWrapper()));
+      let errorMessage: string = '';
+      try {
+        await failedAppPromise;
+      } catch (error) {
+        errorMessage = (error as Error).message;
+      }
+      expect(errorMessage).assertContain('boom');
       done();
     });
 

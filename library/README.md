@@ -135,24 +135,23 @@ const appParam: WindowAppParam = {
 };
 
 try {
-  const appId = await controller.addAppAndWaitForSetup(appParam);
+  const appId = await controller.addApp(appParam);
 } catch (error) {
   // Web App setup 失败，未完成初始化的窗口已被清理。
 }
 ```
 
-`addApp` 保留原有兼容语义，在窗口创建后即完成；`addAppAndWaitForSetup` 会等待 Web App 的 `setup()`。`WindowParams.originSize` 只作用于 MainView，不会隐式传给 Slide / Presentation。
+`addApp` 会等待 Web App 的 `setup()` 完成，失败时 reject 并清理未完成初始化的窗口；公开方法名和调用签名保持兼容。`WindowParams.originSize` 只作用于 MainView，不会隐式传给 Slide / Presentation。
 
 配置 MainView `originSize` 后，可调用 `fitOriginSizeAndCamera()` 恢复参考尺寸和初始相机状态。
 
 1. `addApp`
-2. `addAppAndWaitForSetup`
-3. `fitOriginSizeAndCamera`
-4. `closeApp`
-5. `focusApp`
-6. `queryApp`
-7. `queryAllApps`
-8. `dispatchDocsEvent`
+2. `fitOriginSizeAndCamera`
+3. `closeApp`
+4. `focusApp`
+5. `queryApp`
+6. `queryAllApps`
+7. `dispatchDocsEvent`
 
 `dispatchDocsEvent` 统一控制 MainView、DocsViewer、Slide 和 Presentation，返回结构化的命令接收结果：
 
