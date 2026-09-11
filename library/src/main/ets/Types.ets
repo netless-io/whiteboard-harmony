@@ -643,6 +643,8 @@ export interface WindowAppParam {
   kind: string;
   options?: object;
   attributes?: object;
+  /** Slide / Presentation reference size, serialized as attributes.originSize. */
+  originSize?: WindowOriginSize;
 }
 
 export interface WindowAppSyncAttrs {

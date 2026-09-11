@@ -19,9 +19,13 @@ import {
   ViewMode,
   WindowDocsEvent,
   DispatchDocsEventResult,
+  DispatchDocsEventRejectedResult,
+  UnifiedPageState,
   UnifiedPageStateChange,
   WindowParams,
   WindowPrefersColorScheme,
+  WindowAppParam,
+  WindowOriginSize,
 } from '../main/ets/Types';
 import { HasBackgroundImageParams, RoomOptions, WhiteboardOptions } from '../main/ets/WhiteboardOptions';
 
@@ -105,6 +109,39 @@ interface UploadLocalLogsPayload {
 interface SetupFailPayload {
   message: string
   jsStack: string
+}
+
+interface DocsEventRejectedPayload {
+  accepted: boolean
+  reason: string
+  message: string
+}
+
+interface TestWindowAppOptions {
+  title: string
+}
+
+interface TestWindowAppAttributes {
+  taskId: string
+}
+
+interface ResolvedTestWindowAppAttributes {
+  taskId: string
+  originSize: WindowOriginSize
+}
+
+interface UnifiedPageScalePayload {
+  target: string
+  appId: string
+  page: number
+  pageCount: number
+  scale: number
+  status: string
+  changeType: string
+}
+
+class UnifiedPageStateRecorder {
+  received?: UnifiedPageStateChange
 }
 
 class TestSlideListener implements SlideListener {
@@ -401,17 +438,17 @@ export default function localUnitTest() {
         'scalePage',
         { target: 'DocsViewer-1', scale: 2 },
       ]));
-      bridge.respond(toJsonString({
+      const rejectedPayload: DocsEventRejectedPayload = {
         accepted: false,
         reason: 'eventNotSupported',
         message: 'DocsViewer does not support scalePage',
-      }));
+      };
+      bridge.respond(toJsonString(rejectedPayload));
       const docsResult: DispatchDocsEventResult = await docsResultPromise;
       expect(docsResult.accepted).assertFalse();
-      if (!docsResult.accepted) {
-        expect(docsResult.reason).assertEqual('eventNotSupported');
-        expect(docsResult.message).assertEqual('DocsViewer does not support scalePage');
-      }
+      const rejectedResult = docsResult as DispatchDocsEventRejectedResult;
+      expect(rejectedResult.reason).assertEqual('eventNotSupported');
+      expect(rejectedResult.message).assertEqual('DocsViewer does not support scalePage');
 
       controller.insertText(10, 12, 'abc');
       expect(bridge.lastCall().method).assertEqual('room.insertText');
@@ -428,18 +465,52 @@ export default function localUnitTest() {
       expect(JSON.stringify(bridge.lastCall().args)).assertEqual(JSON.stringify([
         { target: 'Presentation-1' },
       ]));
-      bridge.respond(toJsonString({
+      const pageStatePayload: UnifiedPageState = {
         target: 'Presentation',
         appId: 'Presentation-1',
         page: 2,
         pageCount: 6,
         scale: 1.5,
-      }));
+      };
+      bridge.respond(toJsonString(pageStatePayload));
 
       const state = await statePromise;
       expect(state.target).assertEqual('Presentation');
       expect(state.appId).assertEqual('Presentation-1');
       expect(state.scale).assertEqual(1.5);
+      done();
+    });
+
+    it('window_app_origin_size_and_new_controls_use_bridge_contract', 0, async (done: Function) => {
+      const bridge: FakeBridge = new FakeBridge();
+      const controller: WhiteboardController = new WhiteboardController();
+      controller.attachWhiteboard(bridge as object as DsBridge);
+      const options: TestWindowAppOptions = { title: 'Slide' };
+      const attributes: TestWindowAppAttributes = { taskId: 'task-1' };
+      const originSize: WindowOriginSize = { width: 1280, height: 900 };
+      const appParam: WindowAppParam = {
+        kind: 'Slide',
+        options: options,
+        attributes: attributes,
+        originSize: originSize,
+      };
+
+      const appPromise: Promise<string> = controller.addAppAndWaitForSetup(appParam);
+      expect(bridge.lastCall().method).assertEqual('room.addAppAndWaitForSetup');
+      const resolvedAttributes: ResolvedTestWindowAppAttributes = {
+        taskId: 'task-1',
+        originSize: originSize,
+      };
+      expect(JSON.stringify(bridge.lastCall().args)).assertEqual(JSON.stringify([
+        'Slide',
+        options,
+        resolvedAttributes,
+      ]));
+      bridge.respond('slide-1');
+      expect(await appPromise).assertEqual('slide-1');
+
+      controller.fitOriginSizeAndCamera();
+      expect(bridge.lastCall().method).assertEqual('room.fitOriginSizeAndCamera');
       done();
     });
 
@@ -709,13 +780,13 @@ export default function localUnitTest() {
     });
 
     it('SdkJsInterface_forwards_unified_page_scale_state', 0, () => {
-      let received: UnifiedPageStateChange | undefined = undefined;
+      const recorder: UnifiedPageStateRecorder = new UnifiedPageStateRecorder();
       const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks()
         .setOnUnifiedPageStateChange((state: UnifiedPageStateChange) => {
-          received = state;
+          recorder.received = state;
         });
       const sdkJsInterface: SdkJsInterface = new SdkJsInterface(callbacks);
-      sdkJsInterface.unifiedPageStateChange(toJsonString({
+      const payload: UnifiedPageScalePayload = {
         target: 'DocsViewer',
         appId: 'DocsViewer-1',
         page: 2,
@@ -723,12 +794,13 @@ export default function localUnitTest() {
         scale: 1.25,
         status: 'success',
         changeType: 'scale',
-      }));
+      };
+      sdkJsInterface.unifiedPageStateChange(toJsonString(payload));
 
-      expect(received?.target).assertEqual('DocsViewer');
-      expect(received?.scale).assertEqual(1.25);
-      if (received?.status === 'success') {
-        expect(received.changeType).assertEqual('scale');
+      expect(recorder.received?.target).assertEqual('DocsViewer');
+      expect(recorder.received?.scale).assertEqual(1.25);
+      if (recorder.received?.status === 'success') {
+        expect(recorder.received.changeType).assertEqual('scale');
       }
     });
 

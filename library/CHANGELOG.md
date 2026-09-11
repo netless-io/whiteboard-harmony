@@ -4,6 +4,9 @@
 
 - `dispatchDocsEvent` 扩展为 MainView、DocsViewer、Slide、Presentation 的统一异步入口，返回结构化接收结果；删除未发布的 `dispatchPageEvent` 草案命名。
 - 新增 `originSize`、`pageScaleRange`、`getPageState` 和 `onUnifiedPageStateChange` 契约。DocsViewer 不支持 `scalePage`，返回 `eventNotSupported` 和明确原因。
+- 升级内嵌 Bridge 运行时依赖至 `@netless/window-manager@1.0.21`、`@netless/app-slide@0.2.104`。
+- `WindowAppParam` 新增强类型 `originSize`，序列化为 `attributes.originSize`。
+- `WhiteboardController` 新增 `addAppAndWaitForSetup` 与 `fitOriginSizeAndCamera`。
 
 ## [0.2.7] - 2026.08.27
 

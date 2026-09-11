@@ -125,12 +125,34 @@ const windowParams = new WindowParams()
 
 ### App
 
+```typescript
+const appParam: WindowAppParam = {
+  kind: 'Slide',
+  options: { title: 'Projector App' },
+  attributes: { taskId, url },
+  // Slide / Presentation 的参考尺寸写入 attributes.originSize。
+  originSize: { width: 1280, height: 900 },
+};
+
+try {
+  const appId = await controller.addAppAndWaitForSetup(appParam);
+} catch (error) {
+  // Web App setup 失败，未完成初始化的窗口已被清理。
+}
+```
+
+`addApp` 保留原有兼容语义，在窗口创建后即完成；`addAppAndWaitForSetup` 会等待 Web App 的 `setup()`。`WindowParams.originSize` 只作用于 MainView，不会隐式传给 Slide / Presentation。
+
+配置 MainView `originSize` 后，可调用 `fitOriginSizeAndCamera()` 恢复参考尺寸和初始相机状态。
+
 1. `addApp`
-2. `closeApp`
-3. `focusApp`
-4. `queryApp`
-5. `queryAllApps`
-6. `dispatchDocsEvent`
+2. `addAppAndWaitForSetup`
+3. `fitOriginSizeAndCamera`
+4. `closeApp`
+5. `focusApp`
+6. `queryApp`
+7. `queryAllApps`
+8. `dispatchDocsEvent`
 
 `dispatchDocsEvent` 统一控制 MainView、DocsViewer、Slide 和 Presentation，返回结构化的命令接收结果：
 

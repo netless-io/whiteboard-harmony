@@ -32,6 +32,10 @@ import { HasBackgroundImageParams, ReloadBackgroundImageParams, ReloadBackground
 class EmptyDisconnectResult {
 }
 
+class ResolvedWindowAppAttributes {
+  originSize?: object
+}
+
 export class WhiteboardController {
   private whiteboard?: DsBridge
   private writable = false
@@ -650,7 +654,7 @@ export class WhiteboardController {
    */
   addApp(appParam: WindowAppParam): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, appParam.attributes],
+      this.whiteboard?.callHandler("room.addApp", [appParam.kind, appParam.options, this.resolveWindowAppAttributes(appParam)],
         (result: object | string | boolean | undefined) => {
           if (typeof result === 'string') {
             resolve(result)
@@ -659,6 +663,45 @@ export class WhiteboardController {
           }
         })
     });
+  }
+
+  /** Adds an app and resolves only after its Web setup has completed. */
+  addAppAndWaitForSetup(appParam: WindowAppParam): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.addAppAndWaitForSetup",
+        [appParam.kind, appParam.options, this.resolveWindowAppAttributes(appParam)],
+        (result: object | string | boolean | undefined) => {
+          if (typeof result !== 'string') {
+            reject(new Error("Expected string result, but got a different type"));
+            return;
+          }
+          const sdkError = SDKError.promiseError(result);
+          if (sdkError) {
+            reject(new Error(sdkError.toString()));
+          } else {
+            resolve(result);
+          }
+        });
+    });
+  }
+
+  /** Restores the MainView originSize and origin camera when originSize mode is enabled. */
+  fitOriginSizeAndCamera(): void {
+    this.whiteboard?.callHandler("room.fitOriginSizeAndCamera", []);
+  }
+
+  private resolveWindowAppAttributes(appParam: WindowAppParam): object | undefined {
+    if (!appParam.originSize) {
+      return appParam.attributes;
+    }
+    const resolved: ResolvedWindowAppAttributes = appParam.attributes
+      ? JSON.parse(JSON.stringify(appParam.attributes)) as ResolvedWindowAppAttributes
+      : new ResolvedWindowAppAttributes();
+    resolved.originSize = appParam.originSize;
+    return resolved;
   }
 
   /**
