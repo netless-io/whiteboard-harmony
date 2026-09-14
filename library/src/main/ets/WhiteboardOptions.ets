@@ -132,6 +132,8 @@ export interface AppliancePluginExtrasOptions {
   syncOpt?: ApplianceSyncOptions;
   bezier?: ApplianceBezierOptions;
   textEditor?: ApplianceTextEditorOptions;
+  /** Allow the ImageBitmap readback fallback used by the Android demo entry. */
+  allowImageBitmapFallback?: boolean;
   workerRenderModeBlacklist?: WorkerBlacklistByRuntime;
   workerCanvasContextBlacklist?: WorkerBlacklistByRuntime;
 }

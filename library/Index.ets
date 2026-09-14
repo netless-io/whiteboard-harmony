@@ -32,6 +32,7 @@ export {
   CameraBound,
   EventEntry,
   GlobalState,
+  ImageInformation,
   Region,
   Appliance,
   ShapeType,
@@ -69,4 +70,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.7";
+export const VERSION = "0.2.8";

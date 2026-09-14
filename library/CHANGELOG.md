@@ -1,12 +1,17 @@
 # 版本更新记录
 
+## [0.2.8] - 2026.09.14
+
+- 升级内嵌正式版 `Whiteboard-bridge`，包含 `@netless/appliance-plugin@1.1.43`。
+- 同步 ImageBitmap simple Worker service render barrier 修复，并保持 MainThread、OffscreenTransfer 流程隔离。
+- 升级内嵌 Bridge 运行时依赖至 `@netless/window-manager@1.0.21`、`@netless/app-slide@0.2.104`。
+- `WindowAppParam` 新增强类型 `originSize`，序列化为 `attributes.originSize`。
+- `WhiteboardController.addApp` 等待 Web App setup 完成，失败时 reject 并清理半初始化窗口；新增 `fitOriginSizeAndCamera`。
+
 ## [Unreleased]
 
 - `dispatchDocsEvent` 扩展为 MainView、DocsViewer、Slide、Presentation 的统一异步入口，返回结构化接收结果；删除未发布的 `dispatchPageEvent` 草案命名。
 - 新增 `originSize`、`pageScaleRange`、`getPageState` 和 `onUnifiedPageStateChange` 契约。DocsViewer 不支持 `scalePage`，返回 `eventNotSupported` 和明确原因。
-- 升级内嵌 Bridge 运行时依赖至 `@netless/window-manager@1.0.21`、`@netless/app-slide@0.2.104`。
-- `WindowAppParam` 新增强类型 `originSize`，序列化为 `attributes.originSize`。
-- `WhiteboardController.addApp` 现在会等待 Web App setup 完成，失败时 reject 并清理半初始化窗口；新增 `fitOriginSizeAndCamera`。
 
 ## [0.2.7] - 2026.08.27
 

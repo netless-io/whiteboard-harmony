@@ -9,6 +9,7 @@ import {
   WhiteboardController,
   WhiteboardOptions
 } from '@shengwang/whiteboard'
+import { RoomId, RoomToken } from '../common/constant'
 
 @Entry
 @Component
@@ -16,8 +17,8 @@ struct SingleBoard {
   @State writeable: boolean = true
   whiteboardOptions: WhiteboardOptions = {
     appIdentifier: "123/123",
-    roomUuid: "",
-    roomToken: "",
+    roomUuid: RoomId,
+    roomToken: RoomToken,
     region: Region.CN_HZ,
     uid: "123",
     undoCacheScenesCount: 32

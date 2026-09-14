@@ -1,6 +1,20 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/hongqiuer/.ohos/config/default_whiteboard-harmony_bhm6lzEJZwrKSmIfQblKgiThBjSZsQDjXbPssbbF0OA=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BA28418B36EA1AAAB4AAD5BDB5C1224F081501244EA6AC0E8B7D0EF80D6190EBEEED10174C227B1",
+          "profile": "/Users/hongqiuer/.ohos/config/default_whiteboard-harmony_bhm6lzEJZwrKSmIfQblKgiThBjSZsQDjXbPssbbF0OA=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/hongqiuer/.ohos/config/default_whiteboard-harmony_bhm6lzEJZwrKSmIfQblKgiThBjSZsQDjXbPssbbF0OA=.p12",
+          "storePassword": "0000001B7DFE0BFCD7A8D68F83FD4A38A772806BBF1A3040789B309BA335A696701294421B39290867A500"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
