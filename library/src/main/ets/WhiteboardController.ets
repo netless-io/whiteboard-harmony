@@ -705,12 +705,28 @@ export class WhiteboardController {
   }
 
   /**
-   * 设置多窗口下焦点窗口
+   * 设置多窗口下焦点窗口，并等待焦点真正提交。
+   * Lazy 模式等待目标 App setup 和 focus commit；非 Lazy 模式保持同步切换并立即返回 true。
    *
    * @param appId
+   * @returns true 表示房间 focus 与本地 Box 焦点、zIndex 已提交；false 表示请求被取代或状态未提交。setup 失败或超时仅记录日志，不决定返回值
    */
-  focusApp(appId: string) {
-    this.whiteboard?.callHandler("room.focusApp", [appId]);
+  focusApp(appId: string): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) {
+        return;
+      }
+      this.whiteboard?.callHandler("room.focusApp", [appId], (result: object | string | boolean | undefined) => {
+        if (typeof result === 'boolean') {
+          resolve(result);
+          return;
+        }
+        const committed = this.parseJsonResult<boolean>(result, reject);
+        if (committed !== null) {
+          resolve(committed);
+        }
+      });
+    });
   }
 
   /**

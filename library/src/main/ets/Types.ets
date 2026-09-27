@@ -565,6 +565,23 @@ export class WindowParams {
    * 是否使用每个窗口独立的 boxesStatus 状态管理。该参数需要在加入房间前设置。
    */
   useBoxesStatus?: boolean;
+  /**
+   * 房间级强制最大化策略。可写端传 true 时会写入 attributes.forceMaximized 并把房间同步为最大化；
+   * 所有支持该协议的客户端随后禁止进入 normal。
+   * 需要 @netless/window-manager >= 1.0.23-beta.0。
+   */
+  forceMaximized?: boolean;
+  /**
+   * 最大化模式下仅初始化当前顶层 App runtime 的本地开关（不写入房间 attributes）。
+   * 仅当房间已有 attributes.forceMaximized=true 且状态为 maximized/minimized 时生效，否则自动降级为 eager setup。
+   * 需要 @netless/window-manager >= 1.0.23-beta.0。
+   */
+  lazySetupInMaximizedMode?: boolean;
+  /**
+   * lazy setup 模式下本地保留的 App runtime 最大数量，默认值由 WindowManager 决定。
+   * 仅在 forceMaximized=true 且 lazySetupInMaximizedMode=true 时生效。
+   */
+  maxCachedAppsInMaximizedMode?: number;
   /** 本地内置 App 配置，不同步到远端 */
   builtinAppOptions?: BuiltinAppOptions;
   /** MainView reference size. Slide/Presentation receive originSize through addApp attributes. */
@@ -614,6 +631,21 @@ export class WindowParams {
 
   setUseBoxesStatus(useBoxesStatus: boolean): WindowParams {
     this.useBoxesStatus = useBoxesStatus;
+    return this;
+  }
+
+  setForceMaximized(forceMaximized: boolean): WindowParams {
+    this.forceMaximized = forceMaximized;
+    return this;
+  }
+
+  setLazySetupInMaximizedMode(lazySetupInMaximizedMode: boolean): WindowParams {
+    this.lazySetupInMaximizedMode = lazySetupInMaximizedMode;
+    return this;
+  }
+
+  setMaxCachedAppsInMaximizedMode(maxCachedAppsInMaximizedMode: number): WindowParams {
+    this.maxCachedAppsInMaximizedMode = maxCachedAppsInMaximizedMode;
     return this;
   }
 

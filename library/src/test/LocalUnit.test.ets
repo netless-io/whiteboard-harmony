@@ -184,7 +184,10 @@ class EmptyPayload {
 function createWindowParams(): WindowParams {
   return new WindowParams()
     .setFullscreen(true)
-    .setUseBoxesStatus(true)
+    .setUseBoxesStatus(false)
+    .setForceMaximized(true)
+    .setLazySetupInMaximizedMode(true)
+    .setMaxCachedAppsInMaximizedMode(5)
     .setOriginSize({ width: 1280, height: 900 })
     .setPageScaleRange({ minScale: 0.5, maxScale: 4 })
     .setBuiltinAppOptions({
@@ -218,6 +221,7 @@ function createWhiteboardOptions(): WhiteboardOptions {
     slideAppOptions: {
       enableScale: true,
       syncEventQueuePolicy: 'latest-pending-render',
+      navigationButtonMode: 'page',
     },
     localLogOptions: {
       enabled: true,
@@ -344,7 +348,11 @@ export default function localUnitTest() {
       expect(roomOptions.undoCacheScenesCount).assertEqual(32);
       expect(JSON.stringify(roomOptions.userPayload)).assertEqual(JSON.stringify({ role: 'teacher' }));
       expect(roomOptions.windowParams?.fullscreen).assertTrue();
-      expect(roomOptions.windowParams?.useBoxesStatus).assertTrue();
+      expect(roomOptions.windowParams?.useBoxesStatus).assertFalse();
+      expect(roomOptions.windowParams?.forceMaximized).assertTrue();
+      expect(roomOptions.windowParams?.lazySetupInMaximizedMode).assertTrue();
+      expect(roomOptions.windowParams?.maxCachedAppsInMaximizedMode).assertEqual(5);
+      expect(JSON.stringify([roomOptions]).includes('"maxCachedAppsInMaximizedMode":5')).assertTrue();
       expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.useScrollbar).assertTrue();
       expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.debounceSync).assertFalse();
       expect(roomOptions.windowParams?.builtinAppOptions?.presentation?.maxCameraScale).assertEqual(4);
@@ -353,6 +361,8 @@ export default function localUnitTest() {
       expect(sdkOptions?.debounceSync).assertFalse();
       expect(createWhiteboardOptions().slideAppOptions?.enableScale).assertTrue();
       expect(createWhiteboardOptions().slideAppOptions?.syncEventQueuePolicy).assertEqual('latest-pending-render');
+      expect(createWhiteboardOptions().slideAppOptions?.navigationButtonMode).assertEqual('page');
+      expect(JSON.stringify([createWhiteboardOptions().slideAppOptions]).includes('"navigationButtonMode":"page"')).assertTrue();
       expect(createWhiteboardOptions().localLogOptions?.enabled).assertTrue();
       expect(createWhiteboardOptions().localLogOptions?.enabledUpload).assertFalse();
     });
@@ -431,6 +441,16 @@ export default function localUnitTest() {
 
       controller.setPrefersColorScheme(WindowPrefersColorScheme.Dark);
       expect(bridge.lastCall().method).assertEqual('room.setPrefersColorScheme');
+
+      const focusPromise: Promise<boolean> = controller.focusApp('Slide-1');
+      expect(bridge.lastCall().method).assertEqual('room.focusApp');
+      expect(JSON.stringify(bridge.lastCall().args)).assertEqual(JSON.stringify(['Slide-1']));
+      bridge.respond(true);
+      expect(await focusPromise).assertTrue();
+
+      const supersededFocusPromise: Promise<boolean> = controller.focusApp('Slide-2');
+      bridge.respond(false);
+      expect(await supersededFocusPromise).assertFalse();
 
       const docsResultPromise: Promise<DispatchDocsEventResult> = controller.dispatchDocsEvent(createDocsEvent());
       expect(bridge.lastCall().method).assertEqual('room.dispatchDocsEvent');

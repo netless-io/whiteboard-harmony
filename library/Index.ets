@@ -20,6 +20,7 @@ export {
   AppliancePluginOptions,
   LocalLogOptions,
   SlideAppOptions,
+  SlideNavigationButtonMode,
   SlideSyncEventQueuePolicy,
   VersionWorkerBlacklist,
   WhiteboardOptions,
