@@ -20,6 +20,7 @@ export {
   AppliancePluginOptions,
   LocalLogOptions,
   SlideAppOptions,
+  SlideNavigationButtonMode,
   SlideSyncEventQueuePolicy,
   VersionWorkerBlacklist,
   WhiteboardOptions,
@@ -70,4 +71,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.8";
+export const VERSION = "0.2.9";

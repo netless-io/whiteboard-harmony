@@ -2,6 +2,7 @@ import { PresentationAppOptions, Region, WindowParams } from './Types';
 import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
+export type SlideNavigationButtonMode = 'page' | 'step';
 
 export interface SlideAppOptions {
   /** 是否允许缩放 Slide 内容，默认 false */
@@ -18,6 +19,8 @@ export interface SlideAppOptions {
   enableGlobalClick?: boolean;
   /** Slide 同步事件队列策略；未设置时由 Slide 使用 fifo */
   syncEventQueuePolicy?: SlideSyncEventQueuePolicy;
+  /** 底部前后导航按钮按页或按动画步骤切换；未设置时按页切换。 */
+  navigationButtonMode?: SlideNavigationButtonMode;
 }
 
 export interface LocalLogOptions {
