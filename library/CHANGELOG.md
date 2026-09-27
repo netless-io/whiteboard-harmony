@@ -1,17 +1,20 @@
 # 版本更新记录
 
+## [0.2.9] - 2026.09.28
+
+- 内嵌正式版 Bridge：`@netless/window-manager@1.0.23`、`@netless/app-slide@0.2.106`、`@netless/appliance-plugin@1.1.44`。
+- 新增强制最大化、lazy setup、本地 App 缓存及 Slide `navigationButtonMode` 配置。
+- `focusApp` 返回最终焦点提交结果；setup 失败或超时不单独决定返回值。
+- 同步 Bridge 构建资源 `27527d0` 并扩展 LocalUnit 测试。
+
 ## [0.2.8] - 2026.09.14
 
+- `dispatchDocsEvent` 扩展为 MainView、DocsViewer、Slide、Presentation 的统一异步入口；新增 `originSize`、`pageScaleRange`、`getPageState` 和 `onUnifiedPageStateChange` 契约。
 - 升级内嵌正式版 `Whiteboard-bridge`，包含 `@netless/appliance-plugin@1.1.43`。
 - 同步 ImageBitmap simple Worker service render barrier 修复，并保持 MainThread、OffscreenTransfer 流程隔离。
 - 升级内嵌 Bridge 运行时依赖至 `@netless/window-manager@1.0.21`、`@netless/app-slide@0.2.104`。
 - `WindowAppParam` 新增强类型 `originSize`，序列化为 `attributes.originSize`。
 - `WhiteboardController.addApp` 等待 Web App setup 完成，失败时 reject 并清理半初始化窗口；新增 `fitOriginSizeAndCamera`。
-
-## [Unreleased]
-
-- `dispatchDocsEvent` 扩展为 MainView、DocsViewer、Slide、Presentation 的统一异步入口，返回结构化接收结果；删除未发布的 `dispatchPageEvent` 草案命名。
-- 新增 `originSize`、`pageScaleRange`、`getPageState` 和 `onUnifiedPageStateChange` 契约。DocsViewer 不支持 `scalePage`，返回 `eventNotSupported` 和明确原因。
 
 ## [0.2.7] - 2026.08.27
 
