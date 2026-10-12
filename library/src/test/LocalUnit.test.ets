@@ -4,7 +4,7 @@ import { DsBridge } from '../main/ets/DsBridge';
 import { RoomJsInterface, SdkJsInterface } from '../main/ets/JsInterfaces';
 import { SDKError } from '../main/ets/SDKError';
 import { BackgroundImageSource, WhiteboardCallbacks } from '../main/ets/WhiteboardCallbacks';
-import { buildRoomOptions } from '../main/ets/WhiteboardJoinOptions';
+import { buildRoomOptions, buildSdkOptions } from '../main/ets/WhiteboardJoinOptions';
 import {
   EventEntry,
   Region,
@@ -333,6 +333,36 @@ function encodeSceneMapPayload(items: SceneMapPayload[]): string {
 
 export default function localUnitTest() {
   describe('whiteboard_harmony_unit_tests', () => {
+    it('buildSdkOptions_preserves_region_map_and_optional_host_values', 0, () => {
+      const options: WhiteboardOptions = {
+        appIdentifier: 'app', roomUuid: 'uuid', roomToken: 'token', uid: 'uid', region: Region.SG,
+        dynamicConfig: { 'sg': 'https://example.com/harmony/latest.json' }
+      };
+      const serialized: string = JSON.stringify(buildSdkOptions(options));
+      expect(serialized.includes('"sg":"https://example.com/harmony/latest.json"')).assertTrue();
+      expect(serialized.includes('"useMultiViews"')).assertFalse();
+      expect(serialized.includes('"userCursor"')).assertFalse();
+      expect(serialized.includes('"enableAppliancePlugin"')).assertFalse();
+      const roomJson: string = JSON.stringify(buildRoomOptions(options));
+      expect(roomJson.includes('"region":"sg"')).assertTrue();
+      expect(roomJson.includes('"disableCameraTransform"')).assertFalse();
+      expect(roomJson.includes('"disableDeviceInputs"')).assertFalse();
+      options.useMultiViews = false;
+      options.userCursor = false;
+      options.enableAppliancePlugin = false;
+      options.disableCameraTransform = false;
+      options.disableDeviceInputs = false;
+      const explicit: string = JSON.stringify(buildSdkOptions(options));
+      expect(explicit.includes('"useMultiViews":false')).assertTrue();
+      expect(explicit.includes('"userCursor":false')).assertTrue();
+      expect(explicit.includes('"enableAppliancePlugin":false')).assertTrue();
+      const explicitRoom: string = JSON.stringify(buildRoomOptions(options));
+      expect(explicitRoom.includes('"disableCameraTransform":false')).assertTrue();
+      expect(explicitRoom.includes('"disableDeviceInputs":false')).assertTrue();
+      options.dynamicConfig = undefined;
+      expect(JSON.stringify(buildSdkOptions(options)).includes('"dynamicConfig"')).assertFalse();
+    });
+
     it('buildRoomOptions_maps_joinRoom_parameters', 0, () => {
       const roomOptions: RoomOptions = buildRoomOptions(createWhiteboardOptions());
 

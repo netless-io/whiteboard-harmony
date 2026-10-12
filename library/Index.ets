@@ -12,6 +12,7 @@ export { WhiteboardController } from "./src/main/ets/WhiteboardController"
 export { SDKError } from "./src/main/ets/SDKError"
 
 export {
+  DynamicConfigOptions,
   AppliancePluginExtrasOptions,
   BackgroundImageLoadOptions,
   HasBackgroundImageParams,
@@ -26,7 +27,7 @@ export {
   WhiteboardOptions,
   WorkerBlacklistByRuntime,
 } from "./src/main/ets/WhiteboardOptions"
-export { buildRoomOptions } from "./src/main/ets/WhiteboardJoinOptions"
+export { buildRoomOptions, buildSdkOptions } from "./src/main/ets/WhiteboardJoinOptions"
 
 export {
   BroadcastState,
@@ -71,4 +72,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.9";
+export const VERSION = "0.2.10";

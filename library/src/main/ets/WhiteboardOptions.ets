@@ -1,6 +1,9 @@
 import { PresentationAppOptions, Region, WindowParams } from './Types';
 import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
+/** Region -> public OSS latest.json URL for Harmony; missing regions/download failures keep local defaults. */
+export type DynamicConfigOptions = Record<string, string>;
+
 export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
 export type SlideNavigationButtonMode = 'page' | 'step';
 
@@ -149,6 +152,7 @@ export interface AppliancePluginOptions {
  * Whiteboard 统一的配置项目
  */
 export interface WhiteboardOptions {
+  dynamicConfig?: DynamicConfigOptions;
   appIdentifier: string;
   userCursor?: boolean;
   userPayload?: object;
@@ -177,12 +181,13 @@ export interface WhiteboardOptions {
 }
 
 export interface SdkOptions {
+  dynamicConfig?: DynamicConfigOptions;
   appIdentifier: string;
   log: boolean;
-  useMultiViews: boolean;
-  userCursor: boolean;
+  useMultiViews?: boolean;
+  userCursor?: boolean;
   disableNewPencilStroke: boolean;
-  enableAppliancePlugin: boolean;
+  enableAppliancePlugin?: boolean;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
   loggerOptions?: LoggerOptions;

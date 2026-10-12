@@ -6,7 +6,7 @@ import { DsBridge } from './DsBridge';
 import { RoomJsInterface, SDKError, SdkJsInterface } from './JsInterfaces';
 import { WhiteboardCallbacks } from './WhiteboardCallbacks';
 import { Logger } from './Logger';
-import { buildRoomOptions } from './WhiteboardJoinOptions';
+import { buildRoomOptions, buildSdkOptions } from './WhiteboardJoinOptions';
 
 function validateBackgroundImageLoadOptions(options?: BackgroundImageLoadOptions): void {
   if (!options) {
@@ -105,20 +105,7 @@ export struct Whiteboard {
           this.dsBridge.addJavascriptObject(sdkJsInterface, "sdk")
           this.dsBridge.addJavascriptObject(roomJsInterface, "room")
 
-          let sdkOptions: SdkOptions = {
-            appIdentifier: this.options.appIdentifier,
-            log: true,
-            useMultiViews: this.options.useMultiViews ?? false,
-            userCursor: this.options.userCursor ?? false,
-            disableNewPencilStroke: false,
-            enableAppliancePlugin: this.options.enableAppliancePlugin ?? false,
-            presentationAppOptions: this.options.presentationAppOptions,
-            slideAppOptions: this.options.slideAppOptions,
-            loggerOptions: this.options.localLogOptions ? {
-              localLog: this.options.localLogOptions
-            } : undefined,
-            backgroundImageLoadOptions: this.options.backgroundImageLoadOptions
-          }
+          let sdkOptions: SdkOptions = buildSdkOptions(this.options)
           this.dsBridge.callHandler("sdk.newWhiteSdk", [sdkOptions]);
 
           let roomOptions: RoomOptions = buildRoomOptions(this.options)
