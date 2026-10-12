@@ -1,4 +1,4 @@
-import { RoomOptions, WhiteboardOptions } from './WhiteboardOptions';
+import { RoomOptions, WhiteboardOptions, SdkOptions } from './WhiteboardOptions';
 
 export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
   return {
@@ -16,5 +16,22 @@ export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
     undoCacheScenesCount: options.undoCacheScenesCount,
     windowParams: options.windowParams,
     appliancePluginOptions: options.appliancePluginOptions,
+  };
+}
+
+/** Optional host values stay absent across JSON serialization, retaining their priority. */
+export function buildSdkOptions(options: WhiteboardOptions): SdkOptions {
+  return {
+    appIdentifier: options.appIdentifier,
+    dynamicConfig: options.dynamicConfig,
+    log: true,
+    useMultiViews: options.useMultiViews,
+    userCursor: options.userCursor,
+    disableNewPencilStroke: false,
+    enableAppliancePlugin: options.enableAppliancePlugin,
+    presentationAppOptions: options.presentationAppOptions,
+    slideAppOptions: options.slideAppOptions,
+    loggerOptions: options.localLogOptions ? { localLog: options.localLogOptions } : undefined,
+    backgroundImageLoadOptions: options.backgroundImageLoadOptions,
   };
 }
