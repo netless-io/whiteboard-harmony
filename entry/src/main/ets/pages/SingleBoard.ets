@@ -9,14 +9,16 @@ import {
   WhiteboardController,
   WhiteboardOptions
 } from '@shengwang/whiteboard'
-import { RoomId, RoomToken } from '../common/constant'
+import { AppIdentifier, RoomId, RoomToken } from '../common/constant'
+import { dynamicConfig } from '../common/DynamicConfig'
 
 @Entry
 @Component
 struct SingleBoard {
   @State writeable: boolean = true
   whiteboardOptions: WhiteboardOptions = {
-    appIdentifier: "123/123",
+    appIdentifier: AppIdentifier,
+    dynamicConfig,
     roomUuid: RoomId,
     roomToken: RoomToken,
     region: Region.CN_HZ,

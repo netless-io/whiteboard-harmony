@@ -21,7 +21,8 @@ import {
   WindowOriginSize,
 } from '@shengwang/whiteboard'
 import { RoomPhaseGuard, RoomPhaseGuardResult } from '../RoomPhaseGuard'
-import { RoomId, RoomToken } from '../common/constant'
+import { AppIdentifier, RoomId, RoomToken } from '../common/constant'
+import { dynamicConfig } from '../common/DynamicConfig'
 
 const ROOM_REBUILD_DELAY_MS: number = 300
 const ROOM_RECONNECT_WATCHDOG_MS: number = 50000
@@ -93,7 +94,8 @@ struct MultipleBoard {
   private rebuildTimer: number = -1
   private reconnectWatchdogTimer: number = -1
   whiteboardOptions: WhiteboardOptions = {
-    appIdentifier: "123/132",
+    appIdentifier: AppIdentifier,
+    dynamicConfig,
     roomUuid: RoomId,
     roomToken: RoomToken,
     region: Region.CN_HZ,
@@ -114,7 +116,6 @@ struct MultipleBoard {
       enableGlobalClick: false,
       enableScale: true,
       syncEventQueuePolicy: 'latest-pending-render',
-      navigationButtonMode: 'page',
     },
     windowParams: new WindowParams()
       .setChessboard(false)

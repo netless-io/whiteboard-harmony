@@ -8,3 +8,4 @@ build/
 **/build/
 library/BuildProfile.ets
 .DS_Store
+entry/src/main/ets/common/demo.local.ets

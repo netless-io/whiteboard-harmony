@@ -1,5 +1,20 @@
 # Whiteboard 鸿蒙开发
 
+## 本地 Demo 与动态配置
+
+首次构建 Demo 前，将 `entry/src/main/ets/common/demo.local.example.ets` 复制为
+`demo.local.ets`，填写测试 AppIdentifier 与 RoomToken；该文件已被 Git 忽略。
+房间 UUID 在 `common/constant.ets` 中，必须与 Token 对应。
+
+`common/DynamicConfig.ets` 导出 `dynamicConfig`，单窗口与教具插件 Demo 都将其传给
+`WhiteboardOptions.dynamicConfig`。值为 region → Harmony 平台 `latest.json` 的公开 URL，
+由入房的 `region` 选择；可仅填写使用的区域。未配置、区域未匹配、平台不匹配或下载失败时，
+动态配置不生效，继续使用宿主参数和 SDK 默认值；下载默认超时为 5 秒。
+宿主显式参数优先于动态配置，未传的可选参数保持未传，不会转换成 `false`。
+
+教具插件 Demo 与 Android/iOS 测试配置对齐，默认只读，`useWorker` 未显式指定，
+由动态配置及运行时能力决定。真机验证需有效调试签名和 HDC 授权。
+
 ## 静态共享包 vs 动态共享包
 
 [HAR（Harmony Archive）是静态共享包](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/har-package-V5)
