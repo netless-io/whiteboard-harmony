@@ -20,27 +20,27 @@ export default function localUnitTest() {
       const disconnectedAgain: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTED);
 
       expect(connected.showLoading).assertFalse();
-      expect(disconnectedAgain.shouldRebuildRoom).assertTrue();
+      expect(disconnectedAgain.shouldRebuildRoom).assertFalse();
     });
 
-    it('disconnect_phases_trigger_only_one_concurrent_rebuild', 0, () => {
+    it('disconnect_phases_do_not_rebuild_unknown_host', 0, () => {
       const guard: RoomPhaseGuard = new RoomPhaseGuard();
       const disconnecting: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTING);
       const disconnected: RoomPhaseGuardResult = guard.onPhaseChanged(RoomPhase.DISCONNECTED);
 
       expect(disconnecting.showLoading).assertTrue();
-      expect(disconnecting.shouldRebuildRoom).assertTrue();
+      expect(disconnecting.shouldRebuildRoom).assertFalse();
       expect(disconnected.shouldRebuildRoom).assertFalse();
     });
 
-    it('reconnect_watchdog_retries_until_connected', 0, () => {
+    it('reconnect_timeout_does_not_rebuild_unknown_host', 0, () => {
       const guard: RoomPhaseGuard = new RoomPhaseGuard();
       guard.onPhaseChanged(RoomPhase.DISCONNECTED);
 
       const timeout: RoomPhaseGuardResult = guard.onReconnectTimeout();
 
       expect(timeout.showLoading).assertTrue();
-      expect(timeout.shouldRebuildRoom).assertTrue();
+      expect(timeout.shouldRebuildRoom).assertFalse();
     });
 
     it('manual_exit_suppresses_disconnect_rebuild_and_watchdog', 0, () => {

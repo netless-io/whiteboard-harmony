@@ -358,30 +358,8 @@ struct MultipleBoard {
   }
 
   private rebuildRoom(): void {
-    if (this.roomPhaseGuard.isManualExit()) {
-      return
-    }
-
-    this.clearRebuildTimer()
-    this.clearReconnectWatchdog()
-    this.whiteboardMounted = false
-    this.rebuildTimer = setTimeout(() => {
-      this.rebuildTimer = -1
-      if (this.roomPhaseGuard.isManualExit()) {
-        return
-      }
-      console.info('[Whiteboard] rebuilding room with a new Whiteboard instance')
-      this.whiteboardMounted = true
-      this.reconnectWatchdogTimer = setTimeout(() => {
-        this.reconnectWatchdogTimer = -1
-        const result: RoomPhaseGuardResult = this.roomPhaseGuard.onReconnectTimeout()
-        this.roomLoading = result.showLoading
-        if (result.shouldRebuildRoom) {
-          console.warn('[Whiteboard] reconnect watchdog timed out, retrying')
-          this.rebuildRoom()
-        }
-      }, ROOM_RECONNECT_WATCHDOG_MS)
-    }, ROOM_REBUILD_DELAY_MS)
+    // Unknown transport exit must not create another Web component/Room.
+    this.roomLoading = true;
   }
 
   private beginManualExit(): void {
