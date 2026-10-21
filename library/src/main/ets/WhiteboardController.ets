@@ -38,14 +38,18 @@ class ResolvedWindowAppAttributes {
 
 export class WhiteboardController {
   private whiteboard?: DsBridge
+  private owner?: DsBridge
   private writable = false
 
   setInitialWritable(writable: boolean): void {
     this.writable = writable
   }
 
-  attachWhiteboard = (whiteboard: DsBridge) => {
-    this.whiteboard = whiteboard
+  attachWhiteboard = (whiteboard: DsBridge): boolean => {
+    // The old component remains owned by the replacement coordinator until its Room has left.
+    this.owner = whiteboard;
+    this.whiteboard = whiteboard;
+    return true;
   }
   detachWhiteboard = (whiteboard: DsBridge) => {
     if (this.whiteboard === whiteboard) {
@@ -272,30 +276,18 @@ export class WhiteboardController {
   /**
    * 主动断开与互动白板实时房间实例的连接。
    */
-  disconnect(): Promise<object> {
+  disconnect(): Promise<object> { return this.leaveRoom(); }
+
+  /** Wait for this actual host's pending/active Room cleanup; detach does not release ownership. */
+  leaveRoom = (): Promise<object> => {
     return new Promise<object>((resolve, reject) => {
-      if (this.rejectOnBridgeMissing(reject)) {
-        return;
-      }
-      this.whiteboard?.callHandler("room.disconnect", [], (result: object | string | boolean | undefined) => {
+      if (!this.owner) { reject(new Error('Whiteboard is not attached')); return; }
+      this.owner.leaveRoom((result: object) => {
         if (typeof result === 'string') {
-          const sdkError = SDKError.promiseError(result)
-          if (sdkError) {
-            reject(new Error(sdkError.toString()))
-            return
-          }
-          try {
-            resolve(JSON.parse(result) as object)
-          } catch (error) {
-            reject(error as Error)
-          }
-          return
-        }
-        if (typeof result === 'object') {
-          resolve(result)
-        } else {
-          resolve(new EmptyDisconnectResult())
-        }
+          const error = SDKError.promiseError(result);
+          if (error) { reject(new Error(error.toString())); return; }
+          resolve(JSON.parse(result) as object);
+        } else resolve(result);
       });
     });
   }

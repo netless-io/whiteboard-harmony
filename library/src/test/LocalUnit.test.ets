@@ -162,6 +162,10 @@ class FakeBridge {
     this.calls.push(new BridgeCallRecord(method, args, handler));
   }
 
+  leaveRoom(handler: Callback<object>): void {
+    this.callHandler('sdk.leaveRoom', [], handler);
+  }
+
   lastCall(): BridgeCallRecord {
     return this.calls[this.calls.length - 1];
   }
@@ -438,7 +442,7 @@ export default function localUnitTest() {
       bridge.respond(undefined);
       await promise;
 
-      expect(bridge.lastCall().method).assertEqual('room.disconnect');
+      expect(bridge.lastCall().method).assertEqual('sdk.leaveRoom');
       done();
     });
 

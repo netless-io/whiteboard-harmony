@@ -34,6 +34,7 @@ export struct Whiteboard {
   @Prop webDebug: boolean = true
   private webController = new webview.WebviewController();
   private dsBridge = new DsBridge(this.webController)
+  private pageInitialized: boolean = false
 
   aboutToAppear(): void {
     try {
@@ -79,6 +80,7 @@ export struct Whiteboard {
           return false;
         })
         .onPageBegin((event) => {
+          if (this.dsBridge.pageBegin()) this.pageInitialized = false;
           if (event) {
             Logger.info('onPageBegin url:' + event.url);
           }
@@ -97,6 +99,8 @@ export struct Whiteboard {
           if (event) {
             Logger.info('onPageEnd url:' + event.url);
           }
+          if (this.pageInitialized) return;
+          this.pageInitialized = true;
           const sdkJsInterface = new SdkJsInterface(this.callbacks)
           const roomJsInterface = new RoomJsInterface(this.callbacks)
 
@@ -106,10 +110,9 @@ export struct Whiteboard {
           this.dsBridge.addJavascriptObject(roomJsInterface, "room")
 
           let sdkOptions: SdkOptions = buildSdkOptions(this.options)
-          this.dsBridge.callHandler("sdk.newWhiteSdk", [sdkOptions]);
-
           let roomOptions: RoomOptions = buildRoomOptions(this.options)
-          this.dsBridge.callHandler("sdk.joinRoom", [roomOptions], (result: object) => {
+          if (!this.controller.attachWhiteboard(this.dsBridge)) return;
+          this.dsBridge.initializeRoom(sdkOptions, roomOptions, (result: object) => {
             interface JoinRoomResult {
               state: object,
               observerId: number,
@@ -130,12 +133,12 @@ export struct Whiteboard {
               Logger.error("join room failed ${result}")
             }
           });
-          this.controller.attachWhiteboard(this.dsBridge)
         })
         .onPageVisible((event) => {
           Logger.info('onPageVisible url:' + event.url);
         })
         .onRenderExited((event) => {
+          this.dsBridge.invalidate();
           if (event) {
             Logger.info('onRenderExited reason:' + event.renderExitReason);
           }

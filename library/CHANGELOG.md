@@ -1,5 +1,12 @@
 # 版本更新记录
 
+## [0.2.11] - 2026-10-21
+
+- 升级内嵌 Bridge 至 30bf490，app-slide 0.2.108、Slide 1.4.65；沿用 white-web-sdk 2.16.59、window-manager 1.0.25、appliance-plugin 1.1.45。
+- 新增 leaveRoom，保留 disconnect 原有公开入口；两者等待所属 Room 完成清理并返回异步结果，重复调用复用清理结果。
+- 隔离移动端 Room 生命周期与旧回调，同身份替换前等待旧实例退出；入房派发时记录 Native T0 和 traceId。
+- 补充生命周期及真实 JSON 传输契约验证；本次缺少 Harmony 设备，设备 E2E 按发布负责人指示未执行。
+
 ## [0.2.10] - 2026-10-12
 
 - 新增按入房 region 读取对应平台 OSS 动态配置，下载超时 5 秒，缺省或读取失败时沿用本地参数。
