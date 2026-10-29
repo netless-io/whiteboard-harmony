@@ -7,13 +7,13 @@ function environment(){
  const mod={exports:{}},timers=[];let now=0,sequence=0;
  const epoch=new Date(2026,9,19,8,9,5).getTime();
  class ClockDate extends Date {constructor(){super(epoch+now);}}
- vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){timers.push({at:now+ms,fn});}});
+ vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){},info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){timers.push({at:now+ms,fn});}});
  const joins=[],setups=[];
  function host({handshake=true,setup=true}={}){
   const b=new mod.exports.DsBridge({runJavaScript(){}});let handshakeReply;
   b.dsInitBridge.callHandler=(m,a,cb)=>{
    if(m==='sdk.getLifecycle'){handshakeReply=()=>cb({value:JSON.stringify({documentId:'doc'})});if(handshake)handshakeReply();}
-   else if(m==='sdk.newWhiteSdk'){setups.push(a[0]);b.completeSetup=(value='{}')=>cb({value});if(setup)b.completeSetup();}
+   else if(m==='sdk.newWhiteSdk'){setups.push(a.at(-1));b.completeSetup=(value='{}',scope=a[0].__whiteScope)=>cb({value,scope});if(setup)b.completeSetup();}
    else if(m==='sdk.joinRoom'){b.actualUid=a[1].uid;joins.push(JSON.parse(JSON.stringify(a[1])));cb({scope:{...b.scope},value:'{}'});}
    else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;const scope={...b.scope};b.completeLeave=()=>cb({scope,value:'{}'});if(!b.holdLeave)b.completeLeave();}
   };b.completeHandshake=()=>handshakeReply();return b;
@@ -58,12 +58,62 @@ test('owner switching identity during local leave is not closed by stale replace
 });
 for(const missingHandshake of [true,false])test((missingHandshake?'handshake':'setup')+' uses configured deadline and late callback never joins',async()=>{
  const e=environment(),b=e.host({handshake:!missingHandshake,setup:false}),results=[];b.initializeRoom({appIdentifier:'app'},params(),v=>results.push(v));await e.advance(0);await e.advance(101);
- assert.equal(results.length,1);assert.match(results[0],/JoinTimeout/);if(missingHandshake)b.completeHandshake();b.completeSetup();assert.equal(e.joins.length,0);assert.equal(results.length,1);
+ assert.equal(results.length,1);assert.match(results[0],/JoinTimeout/);if(missingHandshake)b.completeHandshake();b.completeSetup?.();assert.equal(e.joins.length,0);assert.equal(results.length,1);
 });
 test('late failed setup cannot overwrite completed close',async()=>{
  const e=environment(),b=e.host({setup:false});b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);await e.advance(101);assert.equal(b.state,'idle');b.completeSetup('{"__error":{"message":"late setup error"}}');assert.equal(b.state,'idle');assert.equal(e.joins.length,0);
 });
 test('late idle cannot overwrite cached close failure',async()=>{
  const e=environment(),b=e.host();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.closeResult='{"__error":{"message":"LeaveTimeout"}}';b.state='blocked';b.addJavascriptObject({},'sdk');b.call('sdk.lifecycleState',JSON.stringify({data:{scope:{...b.scope},value:{state:'idle'}}}));assert.equal(b.state,'blocked');
+});
+test('preparation never joins and same-config join reuses one setup',async()=>{
+ const e=environment(),b=e.host(),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));assert.equal(results.length,1);
+ assert.equal(b.preparationInfo().ready,true);assert.equal(b.preparationInfo().generation,0);assert.equal(b.preparationInfo().roomState,'idle');assert.equal(e.joins.length,0);
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ assert.equal(e.setups.length,1);assert.equal(e.joins.length,1);assert.equal(b.preparationInfo().setupCount,1);assert.equal(b.state,'active');
+});
+test('coalesced prepare uses immutable SDK snapshot',async()=>{
+ const e=environment(),b=e.host({setup:false}),config={appIdentifier:'app',nested:{enabled:true}},results=[];
+ b.prepare(config,15000,v=>results.push(v));b.prepare(config,15000,v=>results.push(v));config.nested.enabled=false;
+ assert.equal(e.setups.length,1);assert.equal(e.setups[0].nested.enabled,true);b.completeSetup();assert.equal(results.length,2);assert.equal(b.preparationInfo().ready,true);
+});
+test('shorter prepare deadline rejects all callers once and late response cannot mark ready',async()=>{
+ const e=environment(),b=e.host({setup:false}),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.prepare({appIdentifier:'app'},50,v=>results.push(v));
+ const late=b.completeSetup;await e.advance(51);assert.equal(results.length,2);assert.match(results[0],/PrepareTimeout/);late();assert.equal(b.preparationInfo().ready,false);
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.completeSetup();assert.equal(b.preparationInfo().ready,true);assert.equal(results.length,3);
+});
+test('cancel before handshake prevents SDK construction and join',async()=>{
+ const e=environment(),b=e.host({handshake:false}),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.cancelPreparation();b.completeHandshake();
+ assert.equal(e.setups.length,0);assert.equal(e.joins.length,0);assert.equal(results.length,1);assert.match(results[0],/Cancelled/);
+});
+test('invalidation rejects preparation and ignores old response',async()=>{
+ const e=environment(),b=e.host({setup:false}),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));const late=b.completeSetup;b.invalidate();late();
+ assert.equal(results.length,1);assert.match(results[0],/HostInvalid/);assert.equal(b.preparationInfo().ready,false);
+});
+test('preparation cannot reconfigure active Room and malformed setup can retry',async()=>{
+ const e=environment(),b=e.host({setup:false}),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.completeSetup('[]');assert.match(results[0],/InvalidSetupResult/);
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.completeSetup();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ b.prepare({appIdentifier:'other'},15000,v=>results.push(v));assert.match(results.at(-1),/Busy/);assert.equal(e.setups.length,2);
+});
+test('preparation on another facade cannot change SDK during a pending join',async()=>{
+ const e=environment(),b=e.host({setup:false}),results=[];
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ b.prepare({appIdentifier:'other'},15000,v=>results.push(v));assert.match(results[0],/Busy/);assert.equal(e.setups.length,1);
+ b.completeSetup();assert.equal(e.joins.length,1);assert.equal(b.state,'active');
+});
+test('mismatched document setup result cannot mark preparation ready',async()=>{
+ const e=environment(),b=e.host({setup:false}),results=[];
+ b.prepare({appIdentifier:'app'},15000,v=>results.push(v));b.completeSetup('{}',{documentId:'stale-doc',generation:0});
+ assert.match(results[0],/StaleScope/);assert.equal(b.preparationInfo().ready,false);assert.equal(e.joins.length,0);
+});
+test('equivalent reordered nested SDK JSON shares the prepared instance',async()=>{
+ const e=environment(),b=e.host();b.prepare({appIdentifier:'app',dynamicConfig:{'cn-hz':'url-cn',us:'url-us'}},15000,()=>{});
+ b.prepare({dynamicConfig:{us:'url-us','cn-hz':'url-cn'},appIdentifier:'app'},15000,()=>{});
+ assert.equal(e.setups.length,1);assert.equal(b.preparationInfo().ready,true);
 });
 (async()=>{for(const {name,fn} of tests){await fn();console.log('PASS '+name);}console.log(tests.length+' owner unit tests passed');})().catch(e=>{console.error(e);process.exitCode=1});

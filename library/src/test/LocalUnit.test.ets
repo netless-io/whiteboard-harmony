@@ -337,6 +337,15 @@ function encodeSceneMapPayload(items: SceneMapPayload[]): string {
 
 export default function localUnitTest() {
   describe('whiteboard_harmony_unit_tests', () => {
+    it('appliance_options_serialize_at_sdk_and_room_without_default_values', 0, () => {
+      const options: WhiteboardOptions = { appIdentifier: "app", roomUuid: "uuid", roomToken: "test", uid: "uid", region: Region.CN_HZ };
+      options.appliancePluginOptions = { extras: { useWorker: "auto", useSimple: false } };
+      const sdkJson: string = JSON.stringify(buildSdkOptions(options));
+      const roomJson: string = JSON.stringify(buildRoomOptions(options));
+      expect(sdkJson.includes('"appliancePluginOptions":{"extras":{"useWorker":"auto","useSimple":false}}')).assertTrue();
+      expect(roomJson.includes('"appliancePluginOptions":{"extras":{"useWorker":"auto","useSimple":false}}')).assertTrue();
+    });
+
     it('buildSdkOptions_preserves_region_map_and_optional_host_values', 0, () => {
       const options: WhiteboardOptions = {
         appIdentifier: 'app', roomUuid: 'uuid', roomToken: 'token', uid: 'uid', region: Region.SG,

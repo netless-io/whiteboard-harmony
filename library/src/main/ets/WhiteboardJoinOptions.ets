@@ -1,6 +1,6 @@
-import { RoomOptions, WhiteboardOptions, SdkOptions } from './WhiteboardOptions';
+import { RoomOptions, WhiteboardRoomOptions, WhiteboardSdkOptions, SdkOptions } from './WhiteboardOptions';
 
-export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
+export function buildRoomOptions(options: WhiteboardRoomOptions): RoomOptions {
   return {
     uuid: options.roomUuid,
     roomToken: options.roomToken,
@@ -20,7 +20,7 @@ export function buildRoomOptions(options: WhiteboardOptions): RoomOptions {
 }
 
 /** Optional host values stay absent across JSON serialization, retaining their priority. */
-export function buildSdkOptions(options: WhiteboardOptions): SdkOptions {
+export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
   return {
     appIdentifier: options.appIdentifier,
     dynamicConfig: options.dynamicConfig,
@@ -29,6 +29,7 @@ export function buildSdkOptions(options: WhiteboardOptions): SdkOptions {
     userCursor: options.userCursor,
     disableNewPencilStroke: false,
     enableAppliancePlugin: options.enableAppliancePlugin,
+    appliancePluginOptions: options.appliancePluginOptions,
     presentationAppOptions: options.presentationAppOptions,
     slideAppOptions: options.slideAppOptions,
     loggerOptions: options.localLogOptions ? { localLog: options.localLogOptions } : undefined,

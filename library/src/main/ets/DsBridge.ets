@@ -1,5 +1,5 @@
 import { Logger } from './Logger';
-import { RoomOptions, SdkOptions } from './WhiteboardOptions';
+import { RoomOptions, SdkOptions, PreparationInfo } from './WhiteboardOptions';
 import { util } from '@kit.ArkTS';
 
 interface NativeJoinRoomOptions extends RoomOptions {
@@ -43,6 +43,98 @@ export class DsBridge {
   private replacement?: Replacement;
   private identity?: string;
   private sdkOptions?: object;
+  private viewId: string = util.generateRandomUUID();
+  private preparedKey: string = '';
+  private preparingKey: string = '';
+  private preparationEpoch: number = 0;
+  private preparationWaiters?: Callback<object>[];
+  private setupCount: number = 0;
+  private preparationStarted: number = 0;
+  private preparationElapsed: number = 0;
+
+  preparationInfo(): PreparationInfo {
+    return { ready: !this.invalid && this.preparedKey.length > 0, viewId: this.viewId,
+      documentId: this.scope.documentId, setupCount: this.setupCount, elapsedMs: this.preparationElapsed,
+      generation: this.scope.generation, roomState: this.state };
+  }
+  logPreload(event: string): void {
+    Logger.info('WhitePreload ' + event + ' ' + JSON.stringify(this.preparationInfo()));
+  }
+  private finishPreparation(value: object): void {
+    const callbacks = this.preparationWaiters;
+    this.preparationWaiters = undefined; this.preparationEpoch++;
+    if (!callbacks) return;
+    this.preparedKey = this.isError(value) ? '' : this.preparingKey;
+    this.preparationElapsed = new Date().getTime() - this.preparationStarted;
+    this.logPreload(this.isError(value) ? 'prepare_failed' : 'prepare_ready');
+    callbacks.forEach((callback: Callback<object>) => callback(value));
+  }
+  cancelPreparation(): void {
+    this.preparedKey = '';
+    this.finishPreparation(this.error('Cancelled'));
+  }
+  /** Local document/JS SDK readiness only; no Room, socket or first-frame guarantee. */
+  prepare(sdkOptions: object, timeoutMs: number, callback: Callback<object>): void {
+    this.prepareConfiguration(sdkOptions, timeoutMs, callback, false);
+  }
+  private prepareConfiguration(sdkOptions: object, timeoutMs: number, callback: Callback<object>, admitted: boolean): void {
+    if (this.invalid || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      callback(this.error(this.invalid ? 'HostInvalid' : 'InvalidPreparationOptions')); return;
+    }
+    const snapshot: object = JSON.parse(JSON.stringify(sdkOptions)) as object;
+    const key: string = JSON.stringify(snapshot, (_name: string, value: ESObject): ESObject => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+      const fields: Record<string, ESObject> = value as Record<string, ESObject>;
+      const sorted: Record<string, ESObject> = {};
+      Object.keys(fields).sort().forEach((name: string) => { sorted[name] = fields[name]; });
+      return sorted;
+    });
+    if (key === this.preparedKey) { this.logPreload('prepare_cache_hit'); callback('{}' as ESObject); return; }
+    if ((this.state === 'joining' && key !== this.preparingKey && !admitted) || this.state === 'active' || this.state === 'closing' || this.state === 'blocked') { callback(this.error('Busy')); return; }
+    if (key !== this.preparingKey) this.cancelPreparation();
+    const starting: boolean = !this.preparationWaiters;
+    if (starting) {
+      this.preparedKey = ''; this.preparingKey = key; this.preparationWaiters = [];
+      this.preparationStarted = new Date().getTime(); this.preparationEpoch++;
+    }
+    this.preparationWaiters?.push(callback);
+    const epoch: number = this.preparationEpoch;
+    setTimeout(() => {
+      if (epoch === this.preparationEpoch && this.preparationWaiters) this.finishPreparation(this.error('PrepareTimeout'));
+    }, timeoutMs);
+    if (!starting) return;
+    this.sdkOptions = snapshot; this.initialized = true; this.logPreload('prepare_start');
+    const setup = (): void => {
+      if (this.invalid || epoch !== this.preparationEpoch || !this.preparationWaiters) return;
+      this.setupCount++;
+      // Generation zero is document-scoped; preparation does not own a Room generation.
+      const marker: LifecycleMarker = new LifecycleMarker(); marker.__whiteScope.documentId = this.scope.documentId;
+      this.dsInitBridge.callHandler('sdk.newWhiteSdk', [marker, snapshot], (result: object) => {
+        if (this.invalid || epoch !== this.preparationEpoch || !this.preparationWaiters) return;
+        const envelope: LifecycleEnvelope = result as LifecycleEnvelope;
+        if (!envelope.scope || envelope.scope.documentId !== this.scope.documentId || envelope.scope.generation !== 0) {
+          this.finishPreparation(this.error('StaleScope')); return;
+        }
+        let value: ESObject = envelope.value;
+        try {
+          if (typeof value !== 'string' || !value.startsWith('{')) value = this.error('InvalidSetupResult');
+          else JSON.parse(value as string);
+        } catch (_) { value = this.error('InvalidSetupResult'); }
+        this.finishPreparation(value);
+      });
+    };
+    if (this.scope.documentId.length > 0) { setup(); return; }
+    this.dsInitBridge.callHandler('sdk.getLifecycle', [], (result: object) => {
+      if (this.invalid || epoch !== this.preparationEpoch || !this.preparationWaiters) return;
+      try {
+        const document = JSON.parse((result as LifecycleEnvelope).value as string) as LifecycleDocument;
+        if (!document.documentId) { this.finishPreparation(this.error('InvalidHandshake')); return; }
+        this.scope.documentId = document.documentId;
+      } catch (_) { this.finishPreparation(this.error('InvalidHandshake')); return; }
+      const queued: (() => void)[] = this.ready; this.ready = []; queued.forEach((work: () => void) => work());
+      setup();
+    });
+  }
 
 
   constructor(webView: WebviewController) {
@@ -203,6 +295,7 @@ export class DsBridge {
 
   /** Explicit initialization replaces the previous Room, including a detached component with the same identity. */
   initializeRoom(sdkOptions: object, roomOptions: object, ready: Callback<object>): boolean {
+    this.logPreload('native_join_entry');
     const sdkSnapshot: SdkOptions = JSON.parse(JSON.stringify(sdkOptions)) as SdkOptions;
     const parameters: RoomOptions = JSON.parse(JSON.stringify(roomOptions)) as RoomOptions;
     if (!parameters.uuid || !parameters.roomToken || !parameters.uid) {ready(this.error('InvalidJoinParameters'));return false;}
@@ -259,31 +352,22 @@ export class DsBridge {
       if (this.scope.generation !== generation || !this.pending || this.state !== 'joining') return;
       this.state = 'closing'; const pending = this.pending; this.pending = undefined;
       pending(this.error('JoinTimeout'));
+      this.cancelPreparation();
       this.closeRoom(() => {});
     }, (roomOptions as RoomOptions).timeout ?? 45000);
-    this.dsInitBridge.callHandler('sdk.getLifecycle', [], (result: object) => {
-      if (this.invalid || generation !== this.scope.generation) return;
-      const envelope = result as LifecycleEnvelope;
-      const document = JSON.parse(envelope.value as string) as LifecycleDocument;
-      this.scope.documentId = document.documentId;
-      this.dsInitBridge.callHandler('sdk.newWhiteSdk', [sdkOptions], (setup: object) => {
-      if (this.invalid || generation !== this.scope.generation) return;
-      const setupValue = (setup as LifecycleEnvelope).value as object;
-      if (this.pending && this.isError(setupValue)) { const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending?.(setupValue); return; }
-      const queued: (() => void)[] = this.ready; this.ready = [];
-      queued.forEach((work: () => void) => work());
-      if (!this.pending || generation !== this.scope.generation) return;
+    this.prepareConfiguration(sdkOptions, (roomOptions as RoomOptions).timeout ?? 45000, (setupValue: object) => {
+      if (this.invalid || generation !== this.scope.generation || !this.pending) return;
+      if (this.isError(setupValue)) { const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending(setupValue); return; }
       this.addNativeTags(roomOptions as NativeJoinRoomOptions);
+      this.logPreload('join_dispatch');
       this.send('sdk.joinRoom', [roomOptions], (value: object) => {
         if (this.invalid || generation !== this.scope.generation || !this.pending) return;
         const pending = this.pending; this.pending = undefined;
-        const error: boolean = typeof value === 'string' && (value as string).includes('"__error"');
-        if (!error) this.state = 'active';
+        if (!this.isError(value)) { this.state = 'active'; this.logPreload('room_ready'); }
         else if (this.state !== 'idle' && this.state !== 'closing') this.state = 'blocked';
         pending(value);
       });
-      });
-    });
+    }, true);
   }
 
   private addNativeTags(parameters: NativeJoinRoomOptions): void {
@@ -322,6 +406,7 @@ export class DsBridge {
     if (this.state === 'idle') { handler('{}' as ESObject); return; }
     this.state = 'closing'; this.closeCallbacks = [handler];
     const pending = this.pending; this.pending = undefined; pending?.(this.error('Cancelled'));
+    if (pending) this.cancelPreparation();
     const generation: number = this.scope.generation;
     setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
     this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value));
@@ -337,6 +422,7 @@ export class DsBridge {
   invalidate(): void {
     if (this.invalid) return;
     this.invalid = true; this.state = 'blocked'; this.ready = [];
+    this.finishPreparation(this.error('HostInvalid')); this.preparedKey = '';
     if (this.replacement) this.finishReplacement(this.replacement, this.error('HostInvalid'));
     const pending = this.pending; this.pending = undefined; pending?.(this.error('HostInvalid'));
     const callbacks = this.closeCallbacks; this.closeCallbacks = undefined;
@@ -345,11 +431,12 @@ export class DsBridge {
   }
   pageBegin(): boolean {
     if (this.scope.documentId.length === 0 || this.invalid) return false;
-    if (this.state !== 'idle' || this.closeResult === undefined ||
+    if (this.state !== 'idle' || (this.scope.generation > 0 && this.closeResult === undefined) ||
       (typeof this.closeResult === 'string' && (this.closeResult as string).includes('"__error"'))) {
       this.invalidate(); return false;
     }
     // An explicit refresh after a completed leave starts a new document, never a recovery retry.
+    this.cancelPreparation();
     this.scope.documentId = ''; this.scope.generation++; this.initialized = false;
     this.closeResult = undefined; this.closeCallbacks = undefined; this.ready = [];
     this.dsInitBridge.invalidate();

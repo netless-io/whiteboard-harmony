@@ -151,33 +151,47 @@ export interface AppliancePluginOptions {
 /**
  * Whiteboard 统一的配置项目
  */
-export interface WhiteboardOptions {
-  dynamicConfig?: DynamicConfigOptions;
+/** Candidate-room configuration contains no room credentials. Keep the actual Web node mounted. */
+export interface WhiteboardSdkOptions {
   appIdentifier: string;
+  dynamicConfig?: DynamicConfigOptions;
   userCursor?: boolean;
-  userPayload?: object;
   useMultiViews?: boolean;
   enableAppliancePlugin?: boolean;
   appliancePluginOptions?: AppliancePluginOptions;
-  /** Window Manager 内置 Presentation 的本地配置 */
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
   localLogOptions?: LocalLogOptions;
-  windowParams?: WindowParams;
+  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
+}
+export interface WhiteboardRoomOptions {
   roomUuid: string;
   roomToken: string;
   uid: string;
   region: Region;
+  userPayload?: object;
   writable?: boolean;
   disableCameraTransform?: boolean;
   disableDeviceInputs?: boolean;
   disableOperations?: boolean;
   floatBar?: boolean;
   timeout?: number;
-  /** 撤销/重做最多保留的场景缓存数量 */
   undoCacheScenesCount?: number;
+  windowParams?: WindowParams;
+  appliancePluginOptions?: AppliancePluginOptions;
+}
+/** Existing automatic-join integrations stay source compatible. */
+export interface WhiteboardOptions extends WhiteboardSdkOptions, WhiteboardRoomOptions {
   callbacks?: WhiteboardCallbacks;
-  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
+}
+export interface PreparationInfo {
+  ready: boolean;
+  viewId: string;
+  documentId: string;
+  setupCount: number;
+  elapsedMs: number;
+  generation: number;
+  roomState: string;
 }
 
 export interface SdkOptions {
@@ -188,6 +202,7 @@ export interface SdkOptions {
   userCursor?: boolean;
   disableNewPencilStroke: boolean;
   enableAppliancePlugin?: boolean;
+  appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
   loggerOptions?: LoggerOptions;

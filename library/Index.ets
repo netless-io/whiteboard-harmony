@@ -25,6 +25,9 @@ export {
   SlideSyncEventQueuePolicy,
   VersionWorkerBlacklist,
   WhiteboardOptions,
+  WhiteboardSdkOptions,
+  WhiteboardRoomOptions,
+  PreparationInfo,
   WorkerBlacklistByRuntime,
 } from "./src/main/ets/WhiteboardOptions"
 export { buildRoomOptions, buildSdkOptions } from "./src/main/ets/WhiteboardJoinOptions"
