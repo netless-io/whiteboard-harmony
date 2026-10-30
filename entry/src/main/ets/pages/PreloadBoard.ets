@@ -34,6 +34,10 @@ struct PreloadBoard {
     console.info('WHITE_PRELOAD_DEMO ' + JSON.stringify(record));
   }
   aboutToAppear(): void {
+    if (AppStorage.get<boolean>('WhiteWorkerProbe')) {
+      const mode = AppStorage.get<string>('WhiteWorkerProbeMode');
+      this.sdkOptions.appliancePluginOptions = { extras: { useWorker: mode === 'mainThread' ? 'mainThread' : 'auto', useSimple: mode !== 'dual', allowImageBitmapFallback: true } };
+    }
     this.prepareRequestedAt = new Date().getTime(); this.record('prepare_request');
     this.controller.prepare().then(() => {
       if (this.disposed) return;
@@ -46,33 +50,26 @@ struct PreloadBoard {
     this.controller.leaveRoom().catch((error: Error) => console.error('Preload leave failed: ' + error.message));
   }
   private async enterClass(): Promise<void> {
-    if (this.joining || this.disposed) return;
+    if (this.joining || this.joined || this.disposed) return;
     this.joining = true; this.status = '正在进入课堂…'; this.record('join_entry');
     try {
       const room: WhiteboardRoomOptions = { roomUuid: PreloadRoomUuid, roomToken: PreloadRoomToken,
         uid: 'harmony-preload-' + new Date().getTime(), region: Region.CN_HZ, writable: false, windowParams: new WindowParams() };
-      if (AppStorage.get<boolean>('WhiteWorkerProbe')) {
-        const mode = AppStorage.get<string>('WhiteWorkerProbeMode');
-        room.appliancePluginOptions = { extras: {
-          useWorker: mode === 'mainThread' ? 'mainThread' : 'auto',
-          useSimple: mode !== 'dual',
-          allowImageBitmapFallback: true
-        } };
-      }
       await this.controller.joinRoom(room);
       this.joined = true; this.status = '已进入课堂'; this.record('room_ready');
       if (AppStorage.get<boolean>('WhitePreloadProbe')) setTimeout(() => { this.leaveClass(); }, 5000);
     } catch (error) { this.status = (error as Error).message; this.record('join_error'); }
+    finally { this.joining = false; }
   }
   private async leaveClass(): Promise<void> {
-    try { await this.controller.leaveRoom(); this.joined = false; this.status = '已退出课堂'; this.record('left'); }
+    try { await this.controller.leaveRoom(); this.joined = false; this.joining = false; this.status = '已退出课堂'; this.record('left'); }
     catch (error) { this.status = (error as Error).message; this.record('leave_error'); }
   }
   build() {
     Column() {
       Text(this.status).fontSize(20).padding(12)
       Row() {
-        Button('进入测试课堂').enabled(this.prepared && !this.joining).onClick(() => { this.enterClass(); })
+        Button('进入测试课堂').enabled(this.prepared && !this.joining && !this.joined).onClick(() => { this.enterClass(); })
         Button('退出课堂').enabled(this.joined).onClick(() => { this.leaveClass(); })
       }
       // This Web node stays mounted while waiting, joining and teaching.

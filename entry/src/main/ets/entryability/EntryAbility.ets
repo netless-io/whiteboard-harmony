@@ -16,6 +16,7 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     if (AppStorage.get<boolean>('WhiteWorkerProbe')) {
       const action = want.parameters?.['workerAction'];
+      AppStorage.set<string>('WhiteWorkerProbeAction', '');
       if (action === 'join') AppStorage.set<string>('WhiteWorkerProbeAction', 'join');
       if (action === 'leave') AppStorage.set<string>('WhiteWorkerProbeAction', 'leave');
     }
