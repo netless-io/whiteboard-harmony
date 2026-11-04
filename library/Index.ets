@@ -13,6 +13,7 @@ export { SDKError } from "./src/main/ets/SDKError"
 
 export {
   DynamicConfigOptions,
+  BuiltinAppPreloadKind,
   AppliancePluginExtrasOptions,
   BackgroundImageLoadOptions,
   HasBackgroundImageParams,

@@ -23,6 +23,9 @@ export function buildRoomOptions(options: WhiteboardRoomOptions): RoomOptions {
 export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
   return {
     appIdentifier: options.appIdentifier,
+    enableModelPreload: options.enableModelPreload,
+    preloadBuiltinApps: options.preloadBuiltinApps === undefined ? undefined : [...options.preloadBuiltinApps],
+    region: options.region,
     dynamicConfig: options.dynamicConfig,
     log: true,
     useMultiViews: options.useMultiViews,

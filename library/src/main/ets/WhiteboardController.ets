@@ -51,12 +51,14 @@ export class WhiteboardController {
   private roomReady?: (writable: boolean) => void
   private attachWaiters: (() => void)[] = []
   private preparationCancels: ((reason: Error) => void)[] = []
+  private attachEpoch: number = 0
+  private joinCancels: ((reason: Error) => void)[] = []
 
   configureSdk(options: SdkOptions, roomReady: (writable: boolean) => void): void {
     this.sdkOptions = JSON.parse(JSON.stringify(options)) as SdkOptions;
     this.roomReady = roomReady;
   }
-  private attached(timeoutMs: number): Promise<DsBridge> {
+  private attached(timeoutMs: number, registerCancel?: (cancel: (reason: Error) => void) => void): Promise<DsBridge> {
     return new Promise<DsBridge>((resolve, reject) => {
       if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) { reject(new Error('InvalidPreparationOptions')); return; }
       if (this.whiteboard) { resolve(this.whiteboard); return; }
@@ -68,7 +70,15 @@ export class WhiteboardController {
         if (timer !== -1) clearTimeout(timer);
         if (this.whiteboard) resolve(this.whiteboard); else reject(new Error('HostInvalid'));
       };
+      const cancel = (reason: Error): void => {
+        if (!waiting) return;
+        waiting = false;
+        if (timer !== -1) clearTimeout(timer);
+        this.attachWaiters = this.attachWaiters.filter((item: () => void) => item !== ready);
+        reject(reason);
+      };
       this.attachWaiters.push(ready);
+      registerCancel?.(cancel);
       timer = setTimeout(() => {
         if (!waiting) return;
         waiting = false;
@@ -115,18 +125,41 @@ export class WhiteboardController {
 
   async joinRoom(options: WhiteboardRoomOptions): Promise<object> {
     const room: WhiteboardRoomOptions = JSON.parse(JSON.stringify(options)) as WhiteboardRoomOptions;
-    const bridge: DsBridge = await this.attached(room.timeout ?? 45000);
-    const sdk: SdkOptions | undefined = this.sdkOptions;
-    if (!sdk || this.whiteboard !== bridge) throw new Error('HostInvalid');
     return new Promise<object>((resolve, reject) => {
-      bridge.initializeRoom(sdk, buildRoomOptions(room), (value: object) => {
-        const result = this.parseJsonResult<JoinRoomReadyResult>(value as ESObject, reject);
-        if (!result) return;
-        this.writable = result.isWritable;
-        this.roomReady?.(result.isWritable);
-        resolve(result);
-      });
+      let settled: boolean = false;
+      let cancelAttach: ((reason: Error) => void) | undefined;
+      const finish = (error?: Error, result?: object): void => {
+        if (settled) return;
+        settled = true;
+        cancelAttach?.(error ?? new Error('Cancelled'));
+        this.joinCancels = this.joinCancels.filter((item: (reason: Error) => void) => item !== cancel);
+        if (error) reject(error); else resolve(result!);
+      };
+      const cancel = (reason: Error): void => finish(reason);
+      // Register before yielding to attachment, including an already attached host.
+      this.joinCancels.push(cancel);
+      this.attached(room.timeout ?? 45000, (cancelWait: (reason: Error) => void) => { cancelAttach = cancelWait; }).then((bridge: DsBridge) => {
+        if (settled) return;
+        const sdk: SdkOptions | undefined = this.sdkOptions;
+        if (!sdk || this.whiteboard !== bridge) { finish(new Error('HostInvalid')); return; }
+        const epoch: number = this.attachEpoch;
+        const roomReady: ((writable: boolean) => void) | undefined = this.roomReady;
+        bridge.initializeRoom(sdk, buildRoomOptions(room), (value: object) => {
+          if (settled) return;
+          if (this.whiteboard !== bridge || this.attachEpoch !== epoch) { finish(new Error('HostInvalid')); return; }
+          const result = this.parseJsonResult<JoinRoomReadyResult>(value as ESObject, (error: Error) => finish(error));
+          if (!result) return;
+          this.writable = result.isWritable;
+          finish(undefined, result);
+          roomReady?.(result.isWritable);
+        });
+      }).catch((error: Error) => finish(error));
     });
+  }
+
+  private cancelPendingJoins(reason: Error = new Error('HostInvalid')): void {
+    const cancels = this.joinCancels; this.joinCancels = [];
+    cancels.forEach((cancel: (reason: Error) => void) => cancel(reason));
   }
 
   setInitialWritable(writable: boolean): void {
@@ -135,6 +168,13 @@ export class WhiteboardController {
 
   attachWhiteboard = (whiteboard: DsBridge): boolean => {
     // The old component remains owned by the replacement coordinator until its Room has left.
+    if (this.whiteboard !== whiteboard) {
+      this.attachEpoch++;
+      if (this.whiteboard) {
+        this.cancelPendingJoins();
+        this.whiteboard.cancelPendingJoins();
+      }
+    }
     this.owner = whiteboard;
     this.whiteboard = whiteboard;
     const waiters = this.attachWaiters; this.attachWaiters = []; waiters.forEach((ready: () => void) => ready());
@@ -142,6 +182,9 @@ export class WhiteboardController {
   }
   detachWhiteboard = (whiteboard: DsBridge) => {
     if (this.whiteboard === whiteboard) {
+      this.attachEpoch++;
+      this.cancelPendingJoins();
+      whiteboard.cancelPendingJoins();
       this.cancelPreparation();
       this.whiteboard = undefined
     }
@@ -370,6 +413,7 @@ export class WhiteboardController {
 
   /** Wait for this actual host's pending/active Room cleanup; detach does not release ownership. */
   leaveRoom = (): Promise<object> => {
+    this.cancelPendingJoins(new Error('Cancelled'));
     return new Promise<object>((resolve, reject) => {
       if (!this.owner) { reject(new Error('Whiteboard is not attached')); return; }
       this.owner.leaveRoom((result: object) => {

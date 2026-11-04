@@ -41,6 +41,7 @@ export class DsBridge {
   private static owners: Map<string, DsBridge> = new Map<string, DsBridge>();
   private static replacements: Map<string, Replacement> = new Map<string, Replacement>();
   private replacement?: Replacement;
+  private admissionEpoch: number = 0;
   private identity?: string;
   private sdkOptions?: object;
   private viewId: string = util.generateRandomUUID();
@@ -300,7 +301,11 @@ export class DsBridge {
     const parameters: RoomOptions = JSON.parse(JSON.stringify(roomOptions)) as RoomOptions;
     if (!parameters.uuid || !parameters.roomToken || !parameters.uid) {ready(this.error('InvalidJoinParameters'));return false;}
     const key: string = JSON.stringify([sdkSnapshot.appIdentifier, parameters.uuid, parameters.uid]);
+    const admission: number = this.admissionEpoch;
     Promise.resolve(true).then(() => {
+      if (this.invalid || admission !== this.admissionEpoch) {
+        ready(this.error(this.invalid ? 'HostInvalid' : 'Cancelled')); return;
+      }
       const request: Replacement = new Replacement(this, key, ready);
       const previous = DsBridge.replacements.get(key);
       const local = this.replacement;
@@ -393,7 +398,13 @@ export class DsBridge {
     this.dsInitBridge.callHandler(method, [marker, ...(args ?? [])], response);
   }
 
+  /** Cancel admissions even before their replacement microtask has run. */
+  cancelPendingJoins(): void {
+    this.admissionEpoch++;
+    if (this.replacement) this.cancelReplacement(this.replacement);
+  }
   leaveRoom(handler: Callback<object>): void {
+    this.cancelPendingJoins();
     Promise.resolve(true).then(() => {
       if (this.replacement) this.cancelReplacement(this.replacement);
       this.closeRoom(handler);
@@ -422,6 +433,7 @@ export class DsBridge {
   invalidate(): void {
     if (this.invalid) return;
     this.invalid = true; this.state = 'blocked'; this.ready = [];
+    this.admissionEpoch++;
     this.finishPreparation(this.error('HostInvalid')); this.preparedKey = '';
     if (this.replacement) this.finishReplacement(this.replacement, this.error('HostInvalid'));
     const pending = this.pending; this.pending = undefined; pending?.(this.error('HostInvalid'));
@@ -436,6 +448,7 @@ export class DsBridge {
       this.invalidate(); return false;
     }
     // An explicit refresh after a completed leave starts a new document, never a recovery retry.
+    this.cancelPendingJoins();
     this.cancelPreparation();
     this.scope.documentId = ''; this.scope.generation++; this.initialized = false;
     this.closeResult = undefined; this.closeCallbacks = undefined; this.ready = [];

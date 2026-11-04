@@ -26,7 +26,7 @@ function declaration(source, name) {
   const ast = ts.createSourceFile('bridge.ts', source, ts.ScriptTarget.Latest, true);
   return ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name.text === name).getText(ast);
 }
-function environment({ closeError } = {}) {
+function environment({ closeError, holdJoin = false } = {}) {
   const wire = [], received = [], callbacks = [], timers = new Set();
   const context = vm.createContext({ console, JSON, Promise, Date, Math, Error, Map, setTimeout(fn, delay) {
     if (!delay) { queueMicrotask(fn); return 0; }
@@ -76,6 +76,7 @@ function environment({ closeError } = {}) {
   vm.runInContext(compile(declaration(sources.Room, 'addWindowApp') + '\n' + declaration(sources.Room, 'addAppAndRespond')), context);
   function handler(source, name) { return vm.runInContext(compile('globalThis.__selected = ' + member(source, name)), context), context.__selected; }
   let closeCount = 0;
+  const joinReplies = [];
   const sdk = {
     getLifecycle: handler(sources.SDK, 'getLifecycle'),
     newWhiteSdk(options, cb) { received.push({ method: 'newWhiteSdk', args: plain([options]) }); cb('{}'); },
@@ -83,7 +84,8 @@ function environment({ closeError } = {}) {
       received.push({ method: 'joinRoom', args: plain([options]) });
       const task = life.lifecycle.begin('room', life.currentScope(), cb);
       task.object = { phase: 'connected', disconnect: async () => { closeCount++; if (closeError) throw new Error(closeError); } };
-      task.settle(); life.lifecycle.activate(task, '{}');
+      const complete = () => { task.settle(); life.lifecycle.activate(task, holdJoin ? JSON.stringify({ isWritable: true, observerId: 1, state: {} }) : '{}'); };
+      if (holdJoin) joinReplies.push(complete); else complete();
       life.inScope(task.scope, () => scoped.registerAsyn('room', Object.fromEntries(['disconnect', 'dispatchDocsEvent', 'getPageState', 'addApp'].map(name => [name, handler(sources.Room, name)]))));
     },
     leaveRoom: handler(sources.SDK, 'leaveRoom'),
@@ -106,7 +108,7 @@ function environment({ closeError } = {}) {
     assert.equal(result, '{}'); assert.equal(JSON.stringify([sdkOptions, roomOptions]), before);
     return input;
   }
-  return { native, controller, join, wire, received, callbacks, scoped, life, context, get closeCount() { return closeCount; } };
+  return { native, controller, join, wire, received, callbacks, scoped, life, context, joinReplies, get closeCount() { return closeCount; } };
 }
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -120,6 +122,7 @@ test('actual JSON preserves explicit false, nested options, enums, omission and 
   const sdk = e.received.find(x => x.method === 'newWhiteSdk').args[0];
   const room = e.received.find(x => x.method === 'joinRoom').args[0];
   assert.equal(sdk.useMultiViews, false); assert.equal(sdk.loggerOptions.localLog.enabled, false);
+  assert.equal(sdk.region, 'cn-hz');
   assert.deepEqual(sdk.slideAppOptions, { enableScale: false, navigationButtonMode: 'step', syncEventQueuePolicy: 'latest-pending-render' });
   assert.equal(sdk.dynamicConfig['cn-hz'], 'https://example.invalid/latest.json');
   assert.ok(!Object.hasOwn(sdk, 'backgroundImageLoadOptions'));
@@ -131,6 +134,77 @@ test('actual JSON preserves explicit false, nested options, enums, omission and 
   assert.ok(!Object.hasOwn(room, '__whiteScope'));
   assert.ok(e.wire.some(x => x.call?.method === 'sdk.joinRoom' && JSON.parse(x.call.data)[0].__whiteScope.generation === 1));
   await e.controller.disconnect(); return e;
+});
+test('SDK region survives actual JSON transport; Room region remains an explicit override', async () => {
+  const e = environment();
+  const buildersSource = fs.readFileSync(path.join(__dirname, '../library/src/main/ets/WhiteboardJoinOptions.ets'), 'utf8');
+  const module = { exports: {} };
+  vm.runInNewContext(compile(buildersSource), { module, exports: module.exports });
+  const sdkOptions = module.exports.buildSdkOptions({ appIdentifier: 'synthetic-app', region: 'sg' });
+  const absent = plain(module.exports.buildSdkOptions({ appIdentifier: 'synthetic-app' }));
+  assert.ok(!Object.hasOwn(absent, 'region'), 'omitted region must retain the Web SDK default');
+  e.controller.configureSdk(sdkOptions, () => {});
+  const preparing = e.controller.prepare();
+  await preparing;
+  assert.equal(e.received.find(x => x.method === 'newWhiteSdk').args[0].region, 'sg');
+  await e.controller.joinRoom({ roomUuid: 'synthetic-room', roomToken: 'synthetic-token', uid: randomUUID(), region: 'us-sv' });
+  assert.equal(e.received.find(x => x.method === 'joinRoom').args[0].region, 'us-sv');
+  await e.controller.disconnect(); return e;
+});
+test('model preload opt-in preserves omission/false/true across Native JSON', async () => {
+  const e = environment();
+  const source = fs.readFileSync(path.join(__dirname, '../library/src/main/ets/WhiteboardJoinOptions.ets'), 'utf8');
+  const mod = { exports: {} };
+  vm.runInNewContext(compile(source), { module: mod, exports: mod.exports });
+  for (const enabled of [undefined, false, true]) {
+    const options = mod.exports.buildSdkOptions({ appIdentifier: 'synthetic-app', enableModelPreload: enabled });
+    const payload = plain(options);
+    assert.equal(payload.enableModelPreload, enabled);
+    assert.equal(Object.hasOwn(payload, 'enableModelPreload'), enabled !== undefined);
+    e.controller.configureSdk(options, () => {});
+    await e.controller.prepare();
+    assert.equal(e.received.filter(x => x.method === 'newWhiteSdk').at(-1).args[0].enableModelPreload, enabled);
+  }
+  return e;
+});
+test('App preload list preserves omission, empty selection and exact kind names in Native JSON', async () => {
+  const e = environment();
+  const source = fs.readFileSync(path.join(__dirname, '../library/src/main/ets/WhiteboardJoinOptions.ets'), 'utf8');
+  const mod = { exports: {} };
+  vm.runInNewContext(compile(source), { module: mod, exports: mod.exports });
+  for (const kinds of [undefined, [], ['Slide', 'Presentation'], ['DocsViewer', 'MediaPlayer']]) {
+    const input = { appIdentifier: 'synthetic-app', preloadBuiltinApps: kinds };
+    const options = mod.exports.buildSdkOptions(input);
+    if (kinds) assert.notEqual(options.preloadBuiltinApps, kinds, 'mapper owns its list snapshot');
+    const payload = plain(options);
+    assert.equal(Object.hasOwn(payload, 'preloadBuiltinApps'), kinds !== undefined);
+    assert.deepEqual(payload.preloadBuiltinApps, kinds);
+    e.controller.configureSdk(options, () => {});
+    await e.controller.prepare();
+    assert.deepEqual(e.received.filter(x => x.method === 'newWhiteSdk').at(-1).args[0].preloadBuiltinApps, kinds);
+  }
+  return e;
+});
+test('real detached join callback cannot announce roomReady on a new prepared component', async () => {
+  const a = environment({ holdJoin: true }), b = environment(), ready = [];
+  const controller = a.controller;
+  controller.configureSdk({ appIdentifier: 'synthetic-app', region: 'sg' }, () => ready.push('A'));
+  const joining = controller.joinRoom({ roomUuid: 'synthetic-room', roomToken: 'synthetic-token', uid: randomUUID(), region: 'sg' });
+  const rejected = assert.rejects(joining, /HostInvalid/);
+  for (let turn = 0; turn < 30; turn++) await Promise.resolve();
+  assert.equal(a.joinReplies.length, 1);
+  controller.detachWhiteboard(a.native); await rejected;
+  controller.configureSdk({ appIdentifier: 'synthetic-app', region: 'sg' }, () => ready.push('B'));
+  controller.attachWhiteboard(b.native); await controller.prepare();
+  assert.equal(b.native.state, 'idle'); assert.equal(b.native.preparationInfo().ready, true);
+  a.joinReplies[0]();
+  for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+  assert.deepEqual(ready, []); assert.equal(controller.getWritable(), false);
+  assert.equal(b.native.state, 'idle'); assert.equal(a.native.state, 'active');
+  // Detach cancels the public wait; the old native owner still follows its
+  // explicit leave contract rather than claiming an unconfirmed transport close.
+  await new Promise(resolve => a.native.leaveRoom(resolve));
+  return a;
 });
 test('actual pinned Room handlers preserve page command, rejection, query and addApp async JSON', async () => {
   const e = environment(); await e.join();
