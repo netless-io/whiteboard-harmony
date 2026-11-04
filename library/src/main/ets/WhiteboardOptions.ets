@@ -1,4 +1,4 @@
-import { PresentationAppOptions, Region, WindowParams } from './Types';
+import { PresentationAppOptions, Region, WindowParams, SlideInvisibleBehavior } from './Types';
 import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 /** Region -> public OSS latest.json URL for Harmony; missing regions/download failures keep local defaults. */
@@ -8,6 +8,18 @@ export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
 export type SlideNavigationButtonMode = 'page' | 'step';
 
 export interface SlideAppOptions {
+  /** 显示 Slide 渲染错误提示。未传时保留内嵌 app-slide 的默认值。 */
+  showRenderError?: boolean;
+  /** 显示 Slide 调试控制面板，默认 false。 */
+  debug?: boolean;
+  /** 最大资源重试次数，默认 3；0 表示不重试。 */
+  resourceMaxRetries?: number;
+  /** 强制 Canvas 2D 渲染，默认 false。 */
+  forceCanvas?: boolean;
+  /** 动画背景色，例如 #ffffff。 */
+  bgColor?: string;
+  /** 隐藏后的行为，默认 frozen。 */
+  invisibleBehavior?: SlideInvisibleBehavior;
   /** 是否允许缩放 Slide 内容，默认 false */
   enableScale?: boolean;
   /** 渲染分辨倍率，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
@@ -175,6 +187,8 @@ export interface WhiteboardSdkOptions {
   appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
+  /** 开启 Slide 资源 URL 异步拦截，默认 false。 */
+  enableSlideInterrupterAPI?: boolean;
   localLogOptions?: LocalLogOptions;
   backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }
@@ -223,6 +237,7 @@ export interface SdkOptions {
   appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
+  enableSlideInterrupterAPI?: boolean;
   loggerOptions?: LoggerOptions;
   backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }

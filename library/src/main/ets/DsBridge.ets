@@ -16,6 +16,10 @@ class LifecycleState { state: string = ''; }
 class LifecycleDocument { documentId: string = ''; }
 class LifecycleErrorInfo { message: string = ''; }
 class LifecycleErrorResult { __error: LifecycleErrorInfo = new LifecycleErrorInfo(); }
+class NativeCompletionHandler {
+  complete: (result: ESObject) => void;
+  constructor(complete: (result: ESObject) => void) { this.complete = complete; }
+}
 class Replacement {
   host: DsBridge;
   key: string;
@@ -172,16 +176,16 @@ export class DsBridge {
 
     let arg: string | null = null;
     let method: Function | undefined;
+    let callbackId: string | undefined;
+    let callbackScope: LifecycleScope | undefined;
 
     try {
       const args: Args = JSON.parse(argStr)
-      if (args._dscbstub) {
-        // TODO: not support async
-        Logger.error("_dscbstub is not supported ")
-      }
+      if (typeof args._dscbstub === 'string') callbackId = args._dscbstub;
       if (args.data && nameStr[0] !== '_dsb') {
         const envelope = args.data as ESObject as LifecycleEnvelope;
         if (!this.matches(envelope.scope) || this.invalid) return JSON.stringify(ret);
+        callbackScope = envelope.scope;
         if (nameStr[0] === 'sdk' && nameStr[1] === 'lifecycleState') {
           const next: string = (envelope.value as LifecycleState).state;
           if (next === 'blocked' || (next === 'idle' && this.closeResult !== undefined && !this.isError(this.closeResult))) this.state = next;
@@ -216,9 +220,25 @@ export class DsBridge {
 
     try {
       ret.code = 0;
-      ret.data = method(arg);
+      if (callbackId) {
+        const name: string = callbackId;
+        const scope: LifecycleScope | undefined = callbackScope;
+        let completed: boolean = false;
+        const handler = new NativeCompletionHandler((result: ESObject): void => {
+          if (completed) return;
+          completed = true;
+          if (this.invalid || (scope && !this.matches(scope))) return;
+          // JSON quoting protects both callback name and result, including URLs with quotes/newlines.
+          const key: string = JSON.stringify(name);
+          this.webView.runJavaScript(`if(typeof window[${key}]==='function'){const cb=window[${key}];delete window[${key}];cb(${JSON.stringify(result)});}`);
+        });
+        method(arg, handler);
+      } else {
+        ret.data = method(arg);
+      }
       return JSON.stringify(ret);
     } catch (e) {
+      ret.code = -1;
       console.error(e);
       error = `Call failed: The parameter of "${methodName}" in Java is invalid.`;
       this.printDebugInfo(error);

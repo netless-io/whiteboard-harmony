@@ -46,14 +46,19 @@ function environment({ closeError, holdJoin = false } = {}) {
     if (name === 'uuid') return { v4: randomUUID };
     if (name === './Logger') return { Logger: { error() {}, info() {} } };
     if (name === './Lifecycle') return load('Lifecycle', sources.Lifecycle);
+    if (name === '../bridge') return scoped;
     if (name === '@netless/webview-bridge') return load('transport', fs.readFileSync(path.join(bridgeRoot, 'node_modules/@netless/webview-bridge/src/bridge.ts'), 'utf8'));
     if (name.startsWith('./')) return load(name, fs.readFileSync(path.join(__dirname, '../library/src/main/ets', name.slice(2) + '.ets'), 'utf8'));
     throw new Error(`unexpected import ${name}`);
   }
   const { DsBridge } = requireModule('./DsBridge');
   const native = new DsBridge({ runJavaScript(code) {
-    const call = JSON.parse(code.slice('window._handleMessageFromNative('.length, -1));
-    wire.push({ direction: 'Native->Bridge', call });
+    if (code.startsWith('window._handleMessageFromNative(')) {
+      const call = JSON.parse(code.slice('window._handleMessageFromNative('.length, -1));
+      wire.push({ direction: 'Native->Bridge', call });
+    } else {
+      wire.push({ direction: 'Native->Bridge', script: code });
+    }
     return vm.runInContext(code, context);
   } });
   context.window._dsbridge = { call(method, args) {
@@ -92,10 +97,17 @@ function environment({ closeError, holdJoin = false } = {}) {
   };
   scoped.registerAsyn('sdk', sdk);
   const { SdkJsInterface } = requireModule('./JsInterfaces');
-  native.addJavascriptObject(new SdkJsInterface({
-    onSlidePageStateChanged(...args) { callbacks.push(['slide', ...args]); },
-    onUnifiedPageStateChange(value) { callbacks.push(['unified', plain(value)]); },
-  }), 'sdk');
+  const { WhiteboardCallbacks } = requireModule('./WhiteboardCallbacks');
+  const nativeCallbacks = new WhiteboardCallbacks()
+    .setOnSlidePageStateChanged((...args) => callbacks.push(['slide', ...args]))
+    .setOnUnifiedPageStateChange(value => callbacks.push(['unified', plain(value)]));
+  const sdkInterface = new SdkJsInterface(nativeCallbacks);
+  native.addJavascriptObject(sdkInterface, 'sdk');
+  const callbackSource = revision
+    ? execFileSync('git', ['show', `${revision}:src/native/SDKCallbackHandler.ts`], { cwd: bridgeRoot, encoding: 'utf8' })
+    : fs.readFileSync(path.join(bridgeRoot, 'src/native/SDKCallbackHandler.ts'), 'utf8');
+  const { SDKCallbackHandler } = load('SDKCallbackHandler', callbackSource);
+  const sdkEvents = new SDKCallbackHandler();
   const { WhiteboardController } = requireModule('./WhiteboardController');
   const controller = new WhiteboardController(); controller.attachWhiteboard(native);
   const builders = requireModule('./WhiteboardJoinOptions');
@@ -108,7 +120,8 @@ function environment({ closeError, holdJoin = false } = {}) {
     assert.equal(result, '{}'); assert.equal(JSON.stringify([sdkOptions, roomOptions]), before);
     return input;
   }
-  return { native, controller, join, wire, received, callbacks, scoped, life, context, joinReplies, get closeCount() { return closeCount; } };
+  return { native, controller, join, wire, received, callbacks, nativeCallbacks, sdkInterface, sdkEvents,
+    scoped, life, context, joinReplies, get closeCount() { return closeCount; } };
 }
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
@@ -229,6 +242,108 @@ test('real event envelopes decode string/object payload and ignore old generatio
   assert.equal(e.callbacks.length, 3); assert.deepEqual(e.callbacks[0], ['slide', 'slide-fixture', 2, 12]);
   assert.equal(e.callbacks[2][1].status, 'success'); await e.controller.disconnect(); return e;
 });
+test('real Bridge retry and link callbacks reach public Harmony callbacks and optional listener', async () => {
+  const e = environment(); await e.join();
+  const direct = [], listener = [];
+  e.nativeCallbacks.setOnSlideResourceMaxRetries((...args) => direct.push(['retry', ...args]))
+    .setSlideOpenUrl(url => direct.push(['link', url]))
+    .setSlideListener({
+      onSlideResourceMaxRetries(...args) { listener.push(['retry', ...args]); },
+      slideOpenUrl(url) { listener.push(['link', url]); },
+    });
+  const url = 'https://example.invalid/slide-1.json?q="quoted"&newline=\n中文';
+  const error = new Error('resource timeout'); error.stack = 'synthetic JS stack\nnext line';
+  e.sdkEvents.onSlideResourceMaxRetries(url, error);
+  e.sdkEvents.slideOpenUrl(url);
+  assert.deepEqual(direct, [['retry', url, 'resource timeout', error.stack], ['link', url]]);
+  assert.deepEqual(listener, direct);
+  const raw = e.wire.find(x => x.method === 'sdk.slideResourceMaxRetries').args.data;
+  assert.deepEqual(raw.value, { url, message: error.message, jsStack: error.stack });
+  for (const value of [{ url }, JSON.stringify({ url }), {}, '[]', 'null', '1', '{bad']) {
+    e.scoped.call('sdk.slideResourceMaxRetries', value);
+  }
+  assert.deepEqual(direct.slice(2), [['retry', url, '', ''], ['retry', url, '', ''], ['retry', '', '', '']]);
+  const before = direct.length;
+  for (const scope of [{ documentId: 'stale', generation: 1 }, { ...plain(e.native.scope), generation: 99 }]) {
+    e.scoped.scopedCall(scope)('sdk.slideResourceMaxRetries', { url, message: 'stale' });
+    e.scoped.scopedCall(scope)('sdk.slideOpenUrl', url);
+  }
+  assert.equal(direct.length, before);
+  e.nativeCallbacks.setSlideListener(undefined);
+  e.sdkEvents.onSlideResourceMaxRetries(url, error);
+  assert.deepEqual(direct.at(-1), ['retry', url, 'resource timeout', error.stack]);
+  assert.equal(listener.length, before, 'removing listener leaves direct callback active');
+  await e.controller.disconnect(); return e;
+});
+test('Slide errors preserve enum, message, ID and zero/unknown indices through real message JSON', async () => {
+  const e = environment(); await e.join();
+  const direct = [], listener = [], messages = [];
+  e.nativeCallbacks.setOnSlideError((...args) => direct.push(args))
+    .setSlideListener({ onSlideError(...args) { listener.push(args); throw new Error('host listener failure'); } });
+  e.nativeCallbacks.onMessage = value => { messages.push(plain(value)); throw new Error('host message failure'); };
+  for (const type of ['RESOURCE_ERROR', 'RUNTIME_ERROR', 'RUNTIME_WARN', 'CANVAS_CRASH', 'NEW_ERROR']) {
+    const value = { type: '@slide/_error_', errorType: type, errorMsg: 'render failed', slideId: 'slide-id', slideIndex: 0 };
+    e.scoped.call('sdk.postMessage', value);
+    e.scoped.call('sdk.postMessage', JSON.stringify({ ...value, slideIndex: -1 }));
+  }
+  assert.equal(direct.length, 10); assert.equal(messages.length, 10); assert.deepEqual(listener, direct);
+  assert.deepEqual(direct[0], ['RESOURCE_ERROR', 'render failed', 'slide-id', 0]);
+  assert.deepEqual(direct[9], ['UNKNOWN', 'render failed', 'slide-id', -1]);
+  e.scoped.call('sdk.postMessage', { type: 'unrelated' });
+  e.scoped.scopedCall({ documentId: 'stale', generation: 1 })('sdk.postMessage', { type: '@slide/_error_' });
+  assert.equal(direct.length, 10);
+  e.nativeCallbacks.setSlideListener(undefined);
+  e.scoped.call('sdk.postMessage', { type: '@slide/_error_' });
+  assert.deepEqual(direct.at(-1), ['UNKNOWN', '', '', -1]);
+  await e.controller.disconnect(); return e;
+});
+test('Slide URL interception round-trips asynchronously, once, with fallback and callback cleanup', async () => {
+  const e = environment(); await e.join();
+  const url = 'https://example.invalid/slide.json';
+  assert.equal(await e.sdkEvents.slideUrlInterrupter(url), url, 'no listener returns original URL');
+  let complete;
+  e.nativeCallbacks.setSlideListener({ slideUrlInterrupter(_url, reply) { complete = reply; } });
+  const pending = e.sdkEvents.slideUrlInterrupter(url);
+  assert.equal(typeof complete, 'function');
+  const replacement = 'https://example.invalid/cache?q="quote"\n中文';
+  complete(replacement); complete('duplicate');
+  assert.equal(await pending, replacement);
+  assert.equal(Object.keys(e.context.window).filter(key => key.startsWith('asyncCall_')).length, 0);
+  e.nativeCallbacks.setSlideUrlInterrupter((_url, reply) => reply('direct-wins'));
+  assert.equal(await e.sdkEvents.slideUrlInterrupter(url), 'direct-wins');
+  e.nativeCallbacks.setSlideUrlInterrupter(() => { throw new Error('host callback failure'); });
+  assert.equal(await e.sdkEvents.slideUrlInterrupter(url), url);
+  // A completion from an old Room/document must never execute JS in the new one.
+  e.nativeCallbacks.setSlideUrlInterrupter((_url, reply) => { complete = reply; });
+  const oldScope = plain(e.native.scope);
+  e.life.inScope(oldScope, () => e.sdkEvents.slideUrlInterrupter(url));
+  const before = e.wire.length;
+  e.native.scope.generation++;
+  complete('stale');
+  assert.equal(e.wire.length, before);
+  e.native.scope.generation = oldScope.generation;
+  e.sdkEvents.slideUrlInterrupter(url);
+  e.native.invalidate();
+  const invalidated = e.wire.length;
+  complete('invalidated');
+  assert.equal(e.wire.length, invalidated);
+  return e;
+});
+test('Slide options preserve explicit false/zero, nested fields and omission across Native JSON', async () => {
+  const e = environment();
+  const slideAppOptions = { resourceMaxRetries: 0, showRenderError: false, debug: false, forceCanvas: false,
+    bgColor: '#ffffff', invisibleBehavior: 'pause', enableGlobalClick: false };
+  await e.join({ enableSlideInterrupterAPI: true, slideAppOptions });
+  const sdk = e.received.find(x => x.method === 'newWhiteSdk').args[0];
+  assert.equal(sdk.enableSlideInterrupterAPI, true);
+  assert.deepEqual(sdk.slideAppOptions, slideAppOptions);
+  await e.controller.disconnect();
+  const other = environment(); await other.join({ enableSlideInterrupterAPI: false });
+  const disabled = other.received.find(x => x.method === 'newWhiteSdk').args[0];
+  assert.equal(disabled.enableSlideInterrupterAPI, false);
+  assert.ok(!Object.hasOwn(disabled, 'slideAppOptions'));
+  await other.controller.disconnect(); return e;
+});
 for (const api of ['disconnect', 'leaveRoom', 'room.disconnect', 'Bridge room.disconnect']) {
   test(`${api} completes real cleanup once and remains idempotent`, async () => {
     const e = environment(); await e.join();
@@ -256,6 +371,12 @@ for (const api of ['disconnect', 'leaveRoom']) {
     assert.equal(e.closeCount, 1); assert.equal(e.native.state, 'blocked'); assert.equal(e.life.lifecycle.state, 'blocked'); return e;
   });
 }
+let completed = false;
+process.on('beforeExit', () => {
+  if (!completed && !process.exitCode) {
+    console.error('FAIL transport contract test has an unresolved Promise'); process.exitCode = 1;
+  }
+});
 (async () => {
   const evidence = { bridge: revision, kind: 'offline transport integration; not device E2E', tests: [] };
   const selected = process.env.WHITEBOARD_WIRE_TEST_FILTER ? tests.filter(test => new RegExp(process.env.WHITEBOARD_WIRE_TEST_FILTER).test(test.name)) : tests;
@@ -266,4 +387,5 @@ for (const api of ['disconnect', 'leaveRoom']) {
   }
   if (process.env.WHITEBOARD_WIRE_EVIDENCE) fs.writeFileSync(process.env.WHITEBOARD_WIRE_EVIDENCE, JSON.stringify(evidence, null, 2) + '\n');
   console.log(`${selected.length} selected transport contract tests passed`);
+  completed = true;
 })().catch(error => { console.error(error); process.exitCode = 1; });

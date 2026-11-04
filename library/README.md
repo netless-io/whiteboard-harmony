@@ -55,6 +55,62 @@ callbacks.sdkSetupFail = (error: SDKError) => {
 };
 ```
 
+### Slide 事件与资源加载
+
+多窗口 Slide 的回调可直接设置在传给 `Whiteboard` 的 `WhiteboardCallbacks` 上：
+
+```typescript
+const callbacks = new WhiteboardCallbacks()
+  .setOnSlideError((type: SlideErrorType, message: string, slideId: string, slideIndex: number) => {
+    console.error(`Slide ${slideId} index ${slideIndex}: ${type}, ${message}`);
+  })
+  .setOnSlideResourceMaxRetries((url: string, message: string, jsStack?: string) => {
+    // 记录资源加载失败，并在业务界面提供重试或降级入口。
+    console.error(`Slide resource failed: ${message}`);
+  })
+  .setSlideOpenUrl((url: string) => {
+    // 由宿主决定是否打开该链接。
+  })
+  .setSlideUrlInterrupter((url: string, complete: (result: string) => void) => {
+    // 可以异步查询本地缓存；完成后必须调用 complete。保留原地址时返回 url。
+    complete(url);
+  });
+```
+
+在 SDK 初始化前设置配置：
+
+```typescript
+const options: WhiteboardOptions = {
+  appIdentifier: 'APP_IDENTIFIER',
+  roomUuid: 'ROOM_UUID',
+  roomToken: 'ROOM_TOKEN',
+  uid: 'CLIENT_UID',
+  region: Region.CN_HZ,
+  useMultiViews: true,
+  enableSlideInterrupterAPI: true,
+  slideAppOptions: { resourceMaxRetries: 3, showRenderError: false }
+};
+// Whiteboard({ options, controller, callbacks })
+```
+
+| Harmony 回调 | 语义与参数 |
+| --- | --- |
+| `onSlideError(type, message, slideId, slideIndex)` | 通用渲染错误；包括 RESOURCE_ERROR、RUNTIME_ERROR、RUNTIME_WARN、CANVAS_CRASH，未知类型映射为 UNKNOWN。slideIndex 保留底层值，-1 表示未提供；不要当作从 1 开始的页面回调。 |
+| `onSlideResourceMaxRetries(url, message, jsStack?)` | 指定资源加载失败且重试耗尽；前两个参数对齐 Android，额外保留 iOS NSError 中的 JS 堆栈。它与 onSlideError 是独立通知。 |
+| `slideOpenUrl(url)` | 用户点击 Slide 链接，通知宿主处理。 |
+| `slideUrlInterrupter(url, complete)` | 异步替换资源 URL，仅在 enableSlideInterrupterAPI=true 时启用；未设置处理器时返回原 URL。每次只采用首次 complete 的结果；处理器抛出异常时返回原 URL。 |
+| `onSlidePageStateChanged(appId, page, pageCount)` | 页面状态变化，page 从 1 开始。 |
+
+也可以实现导出的 `SlideListener` 接口，通过 `callbacks.setSlideListener(listener)` 挂载，传入
+`undefined` 可移除监听器。接口方法均可选。直接回调和监听器同时设置时，通知事件各分发一次；
+URL 拦截优先调用直接设置的 `slideUrlInterrupter`，避免两个处理器竞争异步结果。
+`WhiteboardCallbacks.onMessage` 仍可接收原始 `@slide/_error_` 消息。
+
+`slideAppOptions` 支持 `resourceMaxRetries`（默认 3，0 表示不重试）、`showRenderError`、
+`debug`、`forceCanvas`、`bgColor`、`invisibleBehavior`，以及既有的缩放、帧率和导航配置。
+隐藏行为可使用导出的 `SlideInvisibleBehavior.Frozen` / `Pause`。未传字段继续使用内嵌
+Bridge / app-slide 的默认值；显式 false 和 0 会原样传递。资源重试次数不使用背景图的 -1 无限重试约定。
+
 ### **更改读写模式**
 
 ```

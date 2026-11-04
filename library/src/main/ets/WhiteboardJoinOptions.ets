@@ -35,6 +35,7 @@ export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
     appliancePluginOptions: options.appliancePluginOptions,
     presentationAppOptions: options.presentationAppOptions,
     slideAppOptions: options.slideAppOptions,
+    enableSlideInterrupterAPI: options.enableSlideInterrupterAPI,
     loggerOptions: options.localLogOptions ? { localLog: options.localLogOptions } : undefined,
     backgroundImageLoadOptions: options.backgroundImageLoadOptions,
   };

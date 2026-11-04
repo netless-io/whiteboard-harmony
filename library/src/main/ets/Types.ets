@@ -789,12 +789,18 @@ export interface SlideListener {
   /**
    * 拦截 Slide 资源 URL 回调。
    */
-  slideUrlInterrupter(url: string, complete: (result: string) => void): void;
+  slideUrlInterrupter?(url: string, complete: (result: string) => void): void;
+
+  /** 点击 Slide 中的链接时通知宿主。 */
+  slideOpenUrl?(url: string): void;
+
+  /** 资源加载重试耗尽；jsStack 为可选的 JS 诊断堆栈。 */
+  onSlideResourceMaxRetries?(url: string, message: string, jsStack?: string): void;
 
   /**
    * Slide 加载错误回调。
    */
-  onSlideError(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void;
+  onSlideError?(type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number): void;
 
   /**
    * Slide 页面状态变化回调。

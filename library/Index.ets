@@ -52,6 +52,7 @@ export {
   PptPage,
   SlideErrorType,
   SlideListener,
+  SlideInvisibleBehavior,
   BuiltinAppOptions,
   PresentationAppOptions,
   PresentationViewport,

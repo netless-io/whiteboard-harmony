@@ -1,5 +1,11 @@
 # 版本更新记录
 
+## Unreleased
+
+- 补齐 Slide 渲染错误、资源重试耗尽、链接点击与异步资源 URL 拦截，通过 WhiteboardCallbacks 或 SlideListener 接入。
+- 补齐 enableSlideInterrupterAPI 和 Slide 资源重试、错误显示、调试、Canvas 2D、背景色及隐藏行为配置。
+- 支持异步 Bridge 回传和回调作用域校验，保留原始错误消息与 JS 堆栈。
+
 ## [0.2.11] - 2026-10-21
 
 - 升级内嵌 Bridge 至 30bf490，app-slide 0.2.108、Slide 1.4.65；沿用 white-web-sdk 2.16.59、window-manager 1.0.25、appliance-plugin 1.1.45。

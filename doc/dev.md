@@ -62,7 +62,7 @@ hdc fport ls
     - [X] Page
     - [x] WindowApp
     - [ ] ~~WindowApp 注册~~
-    - [ ] Slide Listeners
+    - [X] Slide Listeners（WhiteboardCallbacks / setSlideListener，含错误、资源重试耗尽、链接与异步 URL 拦截）
     - [ ] WindowDocsEvent
     - [ ] SDKError
     - [ ] CameraBounds
