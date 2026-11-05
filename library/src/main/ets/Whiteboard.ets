@@ -1,6 +1,6 @@
 import { webview } from '@kit.ArkWeb';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { BackgroundImageLoadOptions, RoomOptions, SdkOptions, WhiteboardOptions } from './WhiteboardOptions';
+import { BackgroundImageLoadOptions, RoomOptions, SdkOptions, WhiteboardOptions, WhiteboardSdkOptions } from './WhiteboardOptions';
 import { WhiteboardController } from './WhiteboardController';
 import { DsBridge } from './DsBridge';
 import { RoomJsInterface, SDKError, SdkJsInterface } from './JsInterfaces';
@@ -28,13 +28,17 @@ function validateBackgroundImageLoadOptions(options?: BackgroundImageLoadOptions
 
 @Component
 export struct Whiteboard {
-  @Prop options: WhiteboardOptions
-  @Prop controller: WhiteboardController
-  @Prop callbacks: WhiteboardCallbacks
+  @Prop options: WhiteboardSdkOptions | WhiteboardOptions
+  // Controller is an identity-bearing handle. @Prop would clone its mutable fields.
+  controller: WhiteboardController = new WhiteboardController()
+  @Prop @Watch('onCallbacksChanged') callbacks: WhiteboardCallbacks
+  @Prop autoJoin: boolean = true
   @Prop webDebug: boolean = true
   private webController = new webview.WebviewController();
   private dsBridge = new DsBridge(this.webController)
   private pageInitialized: boolean = false
+
+  onCallbacksChanged(): void { this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange); }
 
   aboutToAppear(): void {
     try {
@@ -102,6 +106,7 @@ export struct Whiteboard {
           if (this.pageInitialized) return;
           this.pageInitialized = true;
           const sdkJsInterface = new SdkJsInterface(this.callbacks)
+          this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange)
           const roomJsInterface = new RoomJsInterface(this.callbacks)
 
           validateBackgroundImageLoadOptions(this.options.backgroundImageLoadOptions)
@@ -109,30 +114,17 @@ export struct Whiteboard {
           this.dsBridge.addJavascriptObject(sdkJsInterface, "sdk")
           this.dsBridge.addJavascriptObject(roomJsInterface, "room")
 
-          let sdkOptions: SdkOptions = buildSdkOptions(this.options)
-          let roomOptions: RoomOptions = buildRoomOptions(this.options)
+          const sdkOptions: SdkOptions = buildSdkOptions(this.options)
+          this.controller.configureSdk(sdkOptions, (writable: boolean) => {
+            this.controller.setInitialWritable(writable)
+            this.callbacks.onRoomReady?.()
+          })
           if (!this.controller.attachWhiteboard(this.dsBridge)) return;
-          this.dsBridge.initializeRoom(sdkOptions, roomOptions, (result: object) => {
-            interface JoinRoomResult {
-              state: object,
-              observerId: number,
-              isWritable: boolean,
-            }
-
-            if (typeof result === 'string') {
-              const sdkError = SDKError.promiseError(result)
-              if (sdkError) {
-                Logger.error("join room error", sdkError)
-              } else {
-                const resultObj: JoinRoomResult = JSON.parse(result)
-                Logger.info(`join room successfully ${resultObj.state}`)
-                this.controller.setInitialWritable(resultObj.isWritable)
-                this.callbacks.onRoomReady?.()
-              }
-            } else {
-              Logger.error("join room failed ${result}")
-            }
-          });
+          if (this.autoJoin) {
+            this.controller.joinRoom(this.options as WhiteboardOptions).catch((error: Error) => Logger.error('join room error', error))
+          } else {
+            this.controller.prepareCompletion().catch((error: Error) => Logger.error('prepare error', error))
+          }
         })
         .onPageVisible((event) => {
           Logger.info('onPageVisible url:' + event.url);

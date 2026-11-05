@@ -5,6 +5,7 @@ export {
   BackgroundImageLoadEvent,
   BackgroundImageSource,
   WhiteboardCallbacks,
+  WhitePreloadResult,
 } from './src/main/ets/WhiteboardCallbacks'
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"
@@ -13,6 +14,7 @@ export { SDKError } from "./src/main/ets/SDKError"
 
 export {
   DynamicConfigOptions,
+  BuiltinAppPreloadKind,
   AppliancePluginExtrasOptions,
   BackgroundImageLoadOptions,
   HasBackgroundImageParams,
@@ -25,6 +27,9 @@ export {
   SlideSyncEventQueuePolicy,
   VersionWorkerBlacklist,
   WhiteboardOptions,
+  WhiteboardSdkOptions,
+  WhiteboardRoomOptions,
+  PreparationInfo,
   WorkerBlacklistByRuntime,
 } from "./src/main/ets/WhiteboardOptions"
 export { buildRoomOptions, buildSdkOptions } from "./src/main/ets/WhiteboardJoinOptions"
@@ -48,6 +53,7 @@ export {
   PptPage,
   SlideErrorType,
   SlideListener,
+  SlideInvisibleBehavior,
   BuiltinAppOptions,
   PresentationAppOptions,
   PresentationViewport,
@@ -72,4 +78,4 @@ export {
   RemovePageParam,
 } from "./src/main/ets/Types"
 
-export const VERSION = "0.2.11";
+export const VERSION = "0.2.12";

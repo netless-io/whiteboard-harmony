@@ -1,4 +1,4 @@
-import { PresentationAppOptions, Region, WindowParams } from './Types';
+import { PresentationAppOptions, Region, WindowParams, SlideInvisibleBehavior } from './Types';
 import { BackgroundImageSource, WhiteboardCallbacks } from './WhiteboardCallbacks';
 
 /** Region -> public OSS latest.json URL for Harmony; missing regions/download failures keep local defaults. */
@@ -8,6 +8,20 @@ export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
 export type SlideNavigationButtonMode = 'page' | 'step';
 
 export interface SlideAppOptions {
+  /** 是否开启 Slide 课件媒体音量共享，默认 false。 */
+  enableSharedMediaVolume?: boolean;
+  /** 显示 Slide 渲染错误提示。默认 false，与 Android / iOS 一致。 */
+  showRenderError?: boolean;
+  /** 显示 Slide 调试控制面板，默认 false。 */
+  debug?: boolean;
+  /** 最大资源重试次数，默认 3；0 表示不重试。 */
+  resourceMaxRetries?: number;
+  /** 强制 Canvas 2D 渲染，默认 false。 */
+  forceCanvas?: boolean;
+  /** 动画背景色，例如 #ffffff。 */
+  bgColor?: string;
+  /** 隐藏后的行为，默认 frozen。 */
+  invisibleBehavior?: SlideInvisibleBehavior;
   /** 是否允许缩放 Slide 内容，默认 false */
   enableScale?: boolean;
   /** 渲染分辨倍率，未设置时由内嵌 Bridge 根据 WebView UA 决定 */
@@ -151,45 +165,84 @@ export interface AppliancePluginOptions {
 /**
  * Whiteboard 统一的配置项目
  */
-export interface WhiteboardOptions {
-  dynamicConfig?: DynamicConfigOptions;
+/** Candidate-room configuration contains no room credentials. Keep the actual Web node mounted. */
+export type BuiltinAppPreloadKind = 'Slide' | 'Presentation' | 'MediaPlayer' | 'DocsViewer';
+
+export interface WhiteboardSdkOptions {
   appIdentifier: string;
+  /** 自定义 API hosts；省略时保留 Web SDK 的默认环境。 */
+  apiHosts?: string[];
+  /** 提前查询并下载房间模型，默认 false；仅对已完成服务端准备的项目和区域显式开启。 */
+  enableModelPreload?: boolean;
+  /** SDK 构造时后台准备 App 类。省略默认 Slide / Presentation；[] 关闭。
+   * 不创建实例或加载课件内容，独立于 enableModelPreload。
+   */
+  preloadBuiltinApps?: BuiltinAppPreloadKind[];
+  /** Region used during candidate-room preparation; a Room may override it. */
+  region?: Region;
+  dynamicConfig?: DynamicConfigOptions;
   userCursor?: boolean;
-  userPayload?: object;
   useMultiViews?: boolean;
+  /** SDK 初始化时启用教具渲染准备，独立于 enableModelPreload，无需传 appliancePluginOptions。
+   * 未被配置覆盖时 useWorker 默认 "auto"，按能力、缓存和页面可见性决定是否执行探针。
+   */
   enableAppliancePlugin?: boolean;
+  /** 可选的 SDK 级教具配置；省略时使用插件默认值和动态配置，Room 可按字段覆盖。 */
   appliancePluginOptions?: AppliancePluginOptions;
-  /** Window Manager 内置 Presentation 的本地配置 */
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
+  /** 开启 Slide 资源 URL 异步拦截，默认 false。 */
+  enableSlideInterrupterAPI?: boolean;
   localLogOptions?: LocalLogOptions;
-  windowParams?: WindowParams;
+  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
+}
+export interface WhiteboardRoomOptions {
   roomUuid: string;
   roomToken: string;
   uid: string;
   region: Region;
+  userPayload?: object;
   writable?: boolean;
   disableCameraTransform?: boolean;
   disableDeviceInputs?: boolean;
   disableOperations?: boolean;
   floatBar?: boolean;
   timeout?: number;
-  /** 撤销/重做最多保留的场景缓存数量 */
   undoCacheScenesCount?: number;
+  windowParams?: WindowParams;
+  appliancePluginOptions?: AppliancePluginOptions;
+}
+/** Existing automatic-join integrations stay source compatible. */
+export interface WhiteboardOptions extends WhiteboardSdkOptions, WhiteboardRoomOptions {
+  region: Region;
   callbacks?: WhiteboardCallbacks;
-  backgroundImageLoadOptions?: BackgroundImageLoadOptions;
+}
+export interface PreparationInfo {
+  ready: boolean;
+  viewId: string;
+  documentId: string;
+  setupCount: number;
+  elapsedMs: number;
+  generation: number;
+  roomState: string;
 }
 
 export interface SdkOptions {
   dynamicConfig?: DynamicConfigOptions;
+  enableModelPreload?: boolean;
+  preloadBuiltinApps?: BuiltinAppPreloadKind[];
   appIdentifier: string;
+  apiHosts?: string[];
+  region?: Region;
   log: boolean;
   useMultiViews?: boolean;
   userCursor?: boolean;
   disableNewPencilStroke: boolean;
   enableAppliancePlugin?: boolean;
+  appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;
+  enableSlideInterrupterAPI?: boolean;
   loggerOptions?: LoggerOptions;
   backgroundImageLoadOptions?: BackgroundImageLoadOptions;
 }

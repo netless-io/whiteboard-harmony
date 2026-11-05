@@ -42,6 +42,49 @@ struct Demo {
 }
 ```
 
+### 同一组件预加载与单次完成回调
+
+将候课配置放在 `WhiteboardSdkOptions`，传入同一个 `WhiteboardController`，并设置
+`Whiteboard({ options, controller, callbacks, autoJoin: false })`。候课和真正入房期间保持
+同一个 Whiteboard 组件挂载；调用 `controller.joinRoom(roomOptions)` 时复用已构造的 SDK。
+
+```typescript
+const options: WhiteboardSdkOptions = {
+  appIdentifier: 'APP_IDENTIFIER', region: Region.CN_HZ,
+  useMultiViews: true, enableAppliancePlugin: true
+};
+const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
+callbacks.onPreloadStateChange = (result: WhitePreloadResult): void => {
+  // success 的 message 为 ""；warn 的 message 说明可选准备失败，仍可正常入房。
+  console.info(JSON.stringify(result));
+};
+// 组件可稍后挂载；timeoutMs 包含附着、握手和 SDK 构造，默认 15000 毫秒。
+await controller.prepareCompletion();
+const info: PreparationInfo | undefined = controller.getPreparationInfo();
+await controller.joinRoom(roomOptions);
+await controller.leaveRoom();
+```
+
+推荐 `prepareCompletion(timeoutMs = 15000): Promise<void>`，成功时没有返回值。
+它表示基础 SDK 已构造，不等待可选模型、App 或教具探针；
+`onPreloadStateChange` 表示本批可选准备已结束，状态为 `success` 或 `warn`，仅投递一次，
+晚设置监听可异步补发。取消、组件替换和旧文档的回包会被丢弃；它不等于 `onRoomReady`，
+不能用它代替房间写入能力或当前 View 的输入就绪检查。
+
+`enableModelPreload` 默认 false；仅显式 true 才提前查询/下载模型。`preloadBuiltinApps`
+省略默认 `Slide`、`Presentation`，`[]` 禁用额外类预热；只预热 App 类，不下载具体课件内容。
+两者与 `enableAppliancePlugin` 独立；默认模型关闭时可先于后端模型预加载灰度使用 App/教具准备。
+`apiHosts?: string[]` 可指定 API 环境，省略保留默认环境；配置在 SDK 构造时捕获，后改原数组不会影响它。
+Room 的 region 可以显式覆盖候课 SDK region。
+
+`slideAppOptions.enableSharedMediaVolume` 默认 false，显式 true 开启 Slide 课件媒体音量共享。
+这些配置都应在组件/SDK 构造前设置。运行时准备状态可通过 `getPreparationInfo()` 查询，
+不需要继续候课时调用 `cancelPreparation()`；正常退出使用可等待的 `leaveRoom()`。
+旧 `prepare(timeoutMs): Promise<PreparationInfo>` 已标记 `@deprecated`，保留原返回值和错误行为，
+新接入请使用 `prepareCompletion()` 与独立的 `getPreparationInfo()`。
+该 API 是可选等待：宿主也可挂载后直接 `joinRoom(roomOptions)`，内部自行等待基础准备，
+无需人为等待回调后才能入房。跨路由复用须保留同一个实际 WebView / Whiteboard 组件及 Controller。
+
 ## 白板操作
 
 ### SDK 初始化失败回调
@@ -54,6 +97,71 @@ callbacks.sdkSetupFail = (error: SDKError) => {
   console.error(`Whiteboard setup failed: ${error.message}`);
 };
 ```
+
+### Slide 事件与资源加载
+
+`slideAppOptions.showRenderError` 默认 false，与 Android / iOS 一致；显式 true 时显示渲染错误提示。
+渲染错误和资源重试耗尽通知与该 UI 开关独立。
+
+多窗口 Slide 的回调可直接设置在传给 `Whiteboard` 的 `WhiteboardCallbacks` 上：
+
+```typescript
+const callbacks = new WhiteboardCallbacks()
+  .setOnPPTMediaPlay(() => {
+    // 动态 PPT 音视频播放通知，与 Android / iOS 一致，无媒体参数。
+  })
+  .setOnPPTMediaPause(() => {
+    // 动态 PPT 音视频暂停通知；不在这里重新控制媒体状态。
+  })
+  .setOnSlideError((type: SlideErrorType, message: string, slideId: string, slideIndex: number) => {
+    console.error(`Slide ${slideId} index ${slideIndex}: ${type}, ${message}`);
+  })
+  .setOnSlideResourceMaxRetries((url: string, message: string, jsStack?: string) => {
+    // 记录资源加载失败，并在业务界面提供重试或降级入口。
+    console.error(`Slide resource failed: ${message}`);
+  })
+  .setSlideOpenUrl((url: string) => {
+    // 由宿主决定是否打开该链接。
+  })
+  .setSlideUrlInterrupter((url: string, complete: (result: string) => void) => {
+    // 可以异步查询本地缓存；完成后必须调用 complete。保留原地址时返回 url。
+    complete(url);
+  });
+```
+
+在 SDK 初始化前设置配置：
+
+```typescript
+const options: WhiteboardOptions = {
+  appIdentifier: 'APP_IDENTIFIER',
+  roomUuid: 'ROOM_UUID',
+  roomToken: 'ROOM_TOKEN',
+  uid: 'CLIENT_UID',
+  region: Region.CN_HZ,
+  useMultiViews: true,
+  enableSlideInterrupterAPI: true,
+  slideAppOptions: { resourceMaxRetries: 3, showRenderError: false }
+};
+// Whiteboard({ options, controller, callbacks })
+```
+
+| Harmony 回调 | 语义与参数 |
+| --- | --- |
+| `onSlideError(type, message, slideId, slideIndex)` | 通用渲染错误；包括 RESOURCE_ERROR、RUNTIME_ERROR、RUNTIME_WARN、CANVAS_CRASH，未知类型映射为 UNKNOWN。slideIndex 保留底层值，-1 表示未提供；不要当作从 1 开始的页面回调。 |
+| `onSlideResourceMaxRetries(url, message, jsStack?)` | 指定资源加载失败且重试耗尽；前两个参数对齐 Android，额外保留 iOS NSError 中的 JS 堆栈。它与 onSlideError 是独立通知。 |
+| `slideOpenUrl(url)` | 用户点击 Slide 链接，通知宿主处理。 |
+| `slideUrlInterrupter(url, complete)` | 异步替换资源 URL，仅在 enableSlideInterrupterAPI=true 时启用；未设置处理器时返回原 URL。每次只采用首次 complete 的结果；处理器抛出异常时返回原 URL。 |
+| `onSlidePageStateChanged(appId, page, pageCount)` | 页面状态变化，page 从 1 开始。 |
+
+也可以实现导出的 `SlideListener` 接口，通过 `callbacks.setSlideListener(listener)` 挂载，传入
+`undefined` 可移除监听器。接口方法均可选。直接回调和监听器同时设置时，通知事件各分发一次；
+URL 拦截优先调用直接设置的 `slideUrlInterrupter`，避免两个处理器竞争异步结果。
+`WhiteboardCallbacks.onMessage` 仍可接收原始 `@slide/_error_` 消息。
+
+`slideAppOptions` 支持 `resourceMaxRetries`（默认 3，0 表示不重试）、`showRenderError`、
+`debug`、`forceCanvas`、`bgColor`、`invisibleBehavior`，以及既有的缩放、帧率和导航配置。
+隐藏行为可使用导出的 `SlideInvisibleBehavior.Frozen` / `Pause`。未传字段继续使用内嵌
+Bridge / app-slide 的默认值；显式 false 和 0 会原样传递。资源重试次数不使用背景图的 -1 无限重试约定。
 
 ### **更改读写模式**
 

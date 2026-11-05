@@ -1,5 +1,17 @@
 # 版本更新记录
 
+## [0.2.12] - 2026-11-06
+
+- 升级内嵌正式 Bridge 至 c577b39：white-web-sdk 2.16.62、window-manager 1.0.28、appliance-plugin 1.1.48、app-slide 0.2.109；同步正式 Worker 资源。
+- 新增推荐基础准备接口 prepareCompletion(timeoutMs = 15000): Promise<void>，使用 getPreparationInfo 读取诊断；旧 prepare 标记 deprecated 并保留原返回及错误。支持同一 Whiteboard/Controller 候课、取消准备并复用 SDK 入房，隔离卸载、替换和旧入房回调。
+- 新增 enableModelPreload（默认 false）与 preloadBuiltinApps（默认 Slide/Presentation，[] 关闭额外类预热）；App 类、模型和教具准备相互独立。
+- 新增单次 onPreloadStateChange，支持 success/warn、晚监听与旧文档/取消过滤；可选准备失败不阻塞正常入房。
+- 补齐 SDK region、apiHosts、Slide 共享媒体音量配置（默认 false），保留配置快照及真实 JSON 中显式 false/0 与省略的区别。
+- 对齐 Slide showRenderError 默认 false，保留显式 true；补齐可选的 PPT 音视频播放/暂停无参通知并隔离宿主异常。
+- 补齐 Slide 渲染错误、资源重试耗尽、链接点击与异步资源 URL 拦截，通过 WhiteboardCallbacks 或 SlideListener 接入。
+- 补齐 enableSlideInterrupterAPI 和 Slide 资源重试、错误显示、调试、Canvas 2D、背景色及隐藏行为配置。
+- 支持异步 Bridge 回传和回调作用域校验，保留原始错误消息与 JS 堆栈。
+
 ## [0.2.11] - 2026-10-21
 
 - 升级内嵌 Bridge 至 30bf490，app-slide 0.2.108、Slide 1.4.65；沿用 white-web-sdk 2.16.59、window-manager 1.0.25、appliance-plugin 1.1.45。

@@ -29,7 +29,7 @@ export class RoomPhaseGuard {
       case RoomPhase.DISCONNECTING:
       case RoomPhase.DISCONNECTED:
         this.loading = true
-        return new RoomPhaseGuardResult(true, this.beginRebuild())
+        return new RoomPhaseGuardResult(true, false)
       case RoomPhase.CONNECTING:
       case RoomPhase.RECONNECTING:
       default:
@@ -43,7 +43,7 @@ export class RoomPhaseGuard {
       return new RoomPhaseGuardResult(this.loading, false)
     }
     this.rebuildInFlight = false
-    return new RoomPhaseGuardResult(true, this.beginRebuild())
+    return new RoomPhaseGuardResult(true, false)
   }
 
   beginManualExit(): void {

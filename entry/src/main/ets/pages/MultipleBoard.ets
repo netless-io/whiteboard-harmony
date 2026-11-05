@@ -21,7 +21,8 @@ import {
   WindowOriginSize,
 } from '@shengwang/whiteboard'
 import { RoomPhaseGuard, RoomPhaseGuardResult } from '../RoomPhaseGuard'
-import { RoomId, RoomToken } from '../common/constant'
+import { AppIdentifier, RoomId, RoomToken } from '../common/constant'
+import { dynamicConfig } from '../common/DynamicConfig'
 
 const ROOM_REBUILD_DELAY_MS: number = 300
 const ROOM_RECONNECT_WATCHDOG_MS: number = 50000
@@ -48,9 +49,6 @@ function createDemoAppliancePluginOptions(allowImageBitmapFallback: boolean): Ap
       allowImageBitmapFallback,
       useSimple: true,
       useBackgroundThread: true,
-      canvasOpt: {
-        contextType: '2d',
-      },
       cursor: {
         enable: true,
         expirationTime: 500,
@@ -71,10 +69,6 @@ function createDemoAppliancePluginOptions(allowImageBitmapFallback: boolean): Ap
             },
           },
         },
-      },
-      syncOpt: {
-        interval: 100,
-        smoothSync: false,
       },
       bezier: {
         enable: false,
@@ -100,7 +94,8 @@ struct MultipleBoard {
   private rebuildTimer: number = -1
   private reconnectWatchdogTimer: number = -1
   whiteboardOptions: WhiteboardOptions = {
-    appIdentifier: "123/123",
+    appIdentifier: AppIdentifier,
+    dynamicConfig,
     roomUuid: RoomId,
     roomToken: RoomToken,
     region: Region.CN_HZ,
@@ -122,19 +117,20 @@ struct MultipleBoard {
       enableScale: true,
       syncEventQueuePolicy: 'latest-pending-render',
     },
-    presentationAppOptions: {
-      maxCameraScale: 4,
-      useScrollbar: true,
-    },
     windowParams: new WindowParams()
-      .setContainerSizeRatio(0.75)
-      .setChessboard(true)
-      .setDebug(true)
-      .setOriginSize({ width: ORIGIN_WIDTH, height: ORIGIN_HEIGHT })
+      .setChessboard(false)
+      .setFullscreen(true)
+      .setUseBoxesStatus(false)
+      .setForceMaximized(true)
+      .setLazySetupInMaximizedMode(true)
+      .setMaxCachedAppsInMaximizedMode(5)
       .setOverwriteStyles(
-        ".netless-app-slide-wb-view {clip-path: none !important;}" +
-          ".telebox-box.telebox-blur.telebox-maximized " +
-          ".netless-app-presentation-content {display: none !important;}"
+        ".telebox-collector{display:none !important;}" +
+          ".vjs-p .player-controller{display:none !important;}" +
+          ".netless-app-slide-wb-view {clip-path: none !important;}" +
+          ".telebox-box.telebox-blur.telebox-maximized {display: none !important;}" +
+          ".netless-app-slide-content [data-resizable-scroll=\"true\"] ~ .scroll-bar { display: none !important;}" +
+          ".netless-app-slide-content [data-resizable-scroll=\"true\"] { width: 100% !important; height: 100% !important;}"
       ),
   }
   whiteboardController: WhiteboardController = new WhiteboardController();
@@ -362,30 +358,8 @@ struct MultipleBoard {
   }
 
   private rebuildRoom(): void {
-    if (this.roomPhaseGuard.isManualExit()) {
-      return
-    }
-
-    this.clearRebuildTimer()
-    this.clearReconnectWatchdog()
-    this.whiteboardMounted = false
-    this.rebuildTimer = setTimeout(() => {
-      this.rebuildTimer = -1
-      if (this.roomPhaseGuard.isManualExit()) {
-        return
-      }
-      console.info('[Whiteboard] rebuilding room with a new Whiteboard instance')
-      this.whiteboardMounted = true
-      this.reconnectWatchdogTimer = setTimeout(() => {
-        this.reconnectWatchdogTimer = -1
-        const result: RoomPhaseGuardResult = this.roomPhaseGuard.onReconnectTimeout()
-        this.roomLoading = result.showLoading
-        if (result.shouldRebuildRoom) {
-          console.warn('[Whiteboard] reconnect watchdog timed out, retrying')
-          this.rebuildRoom()
-        }
-      }, ROOM_RECONNECT_WATCHDOG_MS)
-    }, ROOM_REBUILD_DELAY_MS)
+    // Unknown transport exit must not create another Web component/Room.
+    this.roomLoading = true;
   }
 
   private beginManualExit(): void {

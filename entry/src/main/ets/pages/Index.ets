@@ -9,6 +9,8 @@ struct Index {
   build() {
     Row() {
       Column() {
+        Button('预加载候课 → 进入课堂').fontSize(24).margin({ top: 20 })
+          .onClick(() => { router.pushUrl({ url: 'pages/PreloadBoard' }); })
         Button() {
           Text('AppliancePlugin')
             .fontSize(30)

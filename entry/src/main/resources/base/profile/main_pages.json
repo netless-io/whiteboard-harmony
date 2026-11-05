@@ -2,6 +2,9 @@
   "src": [
     "pages/Index",
     "pages/SingleBoard",
-    "pages/MultipleBoard"
+    "pages/MultipleBoard",
+    "pages/PreloadBoard",
+    "pages/LaunchPreloadBenchmark",
+    "pages/ReleaseE2E"
   ]
 }

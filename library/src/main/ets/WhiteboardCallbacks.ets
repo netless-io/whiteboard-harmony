@@ -5,10 +5,18 @@ import {
   RoomPhase,
   RoomState,
   UnifiedPageStateChange,
+  SlideErrorType,
+  SlideListener,
 } from './Types';
 import { SDKError } from './SDKError';
 
 export type BackgroundImageSource = 'appliance' | 'whiteSdk';
+
+/** One completion of configured optional preparation; not room readiness. */
+export interface WhitePreloadResult {
+  state: 'success' | 'warn';
+  message: string;
+}
 
 export interface BackgroundImageLoadEvent {
   name: 'backgroundImageLoad';
@@ -28,6 +36,12 @@ export interface ApplianceInitLoadingChangeEvent {
 }
 
 export class WhiteboardCallbacks {
+  /** Once per SDK batch; warn does not prevent normal room initialization. */
+  onPreloadStateChange?: (result: WhitePreloadResult) => void;
+  /** 动态 PPT 音视频播放通知；与 Android / iOS 一致，不传媒体标识或类型。 */
+  onPPTMediaPlay?: () => void;
+  /** 动态 PPT 音视频暂停通知；与 Android / iOS 一致，不传媒体标识或类型。 */
+  onPPTMediaPause?: () => void;
   /**
    * 错误回调函数，处理错误信息。
    * @param args 错误信息对象
@@ -41,6 +55,17 @@ export class WhiteboardCallbacks {
   onMessage?: (args: object) => void;
   onBackgroundImageLoad?: (event: BackgroundImageLoadEvent) => void;
   onApplianceInitLoadingChange?: (event: ApplianceInitLoadingChangeEvent) => void;
+
+  /** 可选 Slide 监听器；通知事件也会分发给直接回调；URL 拦截优先使用直接回调。 */
+  slideListener?: SlideListener;
+  /** Slide 渲染错误。slideIndex 保留底层索引，-1 表示未提供。 */
+  onSlideError?: (type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number) => void;
+  /** Slide 资源加载重试耗尽；与通用 onSlideError 分开通知。 */
+  onSlideResourceMaxRetries?: (url: string, message: string, jsStack?: string) => void;
+  /** 点击 Slide 中的链接时通知宿主。 */
+  slideOpenUrl?: (url: string) => void;
+  /** 需 enableSlideInterrupterAPI=true；异步处理后必须调用 complete 返回替换 URL。 */
+  slideUrlInterrupter?: (url: string, complete: (result: string) => void) => void;
 
   /**
    * Slide 页面状态变化回调，页码从 1 开始。
@@ -135,6 +160,16 @@ export class WhiteboardCallbacks {
     return this;
   }
 
+  setOnPPTMediaPlay(callback?: () => void): WhiteboardCallbacks {
+    this.onPPTMediaPlay = callback;
+    return this;
+  }
+
+  setOnPPTMediaPause(callback?: () => void): WhiteboardCallbacks {
+    this.onPPTMediaPause = callback;
+    return this;
+  }
+
   setOnApplianceInitLoadingChange(
     callback: (event: ApplianceInitLoadingChangeEvent) => void,
   ): WhiteboardCallbacks {
@@ -146,6 +181,35 @@ export class WhiteboardCallbacks {
     callback: (appId: string, page: number, pageCount: number) => void,
   ): WhiteboardCallbacks {
     this.onSlidePageStateChanged = callback;
+    return this;
+  }
+
+  setSlideListener(listener?: SlideListener): WhiteboardCallbacks {
+    this.slideListener = listener;
+    return this;
+  }
+
+  setOnSlideError(
+    callback: (type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number) => void,
+  ): WhiteboardCallbacks {
+    this.onSlideError = callback;
+    return this;
+  }
+
+  setOnSlideResourceMaxRetries(
+    callback: (url: string, message: string, jsStack?: string) => void,
+  ): WhiteboardCallbacks {
+    this.onSlideResourceMaxRetries = callback;
+    return this;
+  }
+
+  setSlideOpenUrl(callback: (url: string) => void): WhiteboardCallbacks {
+    this.slideOpenUrl = callback;
+    return this;
+  }
+
+  setSlideUrlInterrupter(callback: (url: string, complete: (result: string) => void) => void): WhiteboardCallbacks {
+    this.slideUrlInterrupter = callback;
     return this;
   }
 

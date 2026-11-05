@@ -50,18 +50,59 @@ export class SdkJsInterface {
   setSlideListener = (slideListener: SlideListener): void => {
     this.slideListener = slideListener;
   };
+  private getSlideListener(): SlideListener | undefined {
+    return this.slideListener ?? this.whiteboardCallbacks?.slideListener;
+  }
+  private notify(callback: () => void): void {
+    try {
+      callback();
+    } catch (error) {
+      Logger.error('WhiteSDK callback failed: ' + String(error));
+    }
+  }
+  private slidePayload(args: string | object): Record<string, Object> | null {
+    const value = typeof args === 'string' ? parseJsonOrNull<Record<string, Object>>(args) : args;
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, Object> : null;
+  }
   slideUrlInterrupter = (args: object, handler: CompletionHandler<string>): void => {
     const url = String(args);
-    if (this.slideListener) {
-      this.slideListener.slideUrlInterrupter(url, handler.complete);
-    } else {
-      handler.complete(url);
+    let completed: boolean = false;
+    const complete = (result: string): void => {
+      if (completed) return;
+      completed = true;
+      handler.complete(typeof result === 'string' ? result : url);
+    };
+    const listener = this.getSlideListener();
+    try {
+      if (this.whiteboardCallbacks?.slideUrlInterrupter) {
+        this.whiteboardCallbacks.slideUrlInterrupter(url, complete);
+      } else if (listener?.slideUrlInterrupter) {
+        listener.slideUrlInterrupter(url, complete);
+      } else {
+        complete(url);
+      }
+    } catch (error) {
+      Logger.error('WhiteSDK slideUrlInterrupter failed: ' + String(error));
+      complete(url);
     }
   };
+  slideOpenUrl = (args: object): void => {
+    if (typeof args !== 'string') return;
+    this.notify(() => this.getSlideListener()?.slideOpenUrl?.(args));
+    this.notify(() => this.whiteboardCallbacks?.slideOpenUrl?.(args));
+  };
+  slideResourceMaxRetries = (args: string | object): void => {
+    const payload = this.slidePayload(args);
+    if (!payload) return;
+    const url: string = typeof payload.url === 'string' ? payload.url : '';
+    const message: string = typeof payload.message === 'string' ? payload.message : '';
+    const jsStack: string = typeof payload.jsStack === 'string' ? payload.jsStack : '';
+    this.notify(() => this.getSlideListener()?.onSlideResourceMaxRetries?.(url, message, jsStack));
+    this.notify(() => this.whiteboardCallbacks?.onSlideResourceMaxRetries?.(url, message, jsStack));
+  };
   slidePageStateChanged = (args: string | object): void => {
-    const jsonObject: Record<string, Object> | null = typeof args === 'string'
-      ? parseJsonOrNull<Record<string, Object>>(args)
-      : args as Record<string, Object>;
+    const jsonObject: Record<string, Object> | null = this.slidePayload(args);
     if (!jsonObject) {
       Logger.error('WhiteSDK slidePageStateChanged received invalid JSON');
       return;
@@ -78,8 +119,8 @@ export class SdkJsInterface {
     }
 
     Logger.info(`WhiteSDK slidePageStateChanged received ${JSON.stringify({ appId, page, pageCount })}`);
-    this.slideListener?.onSlidePageStateChanged?.(appId, page, pageCount);
-    this.whiteboardCallbacks?.onSlidePageStateChanged?.(appId, page, pageCount);
+    this.notify(() => this.getSlideListener()?.onSlidePageStateChanged?.(appId, page, pageCount));
+    this.notify(() => this.whiteboardCallbacks?.onSlidePageStateChanged?.(appId, page, pageCount));
   };
   unifiedPageStateChange = (args: string | object): void => {
     const state = this.convertToJsonOrNull(args) as UnifiedPageStateChange | null;
@@ -135,9 +176,9 @@ export class SdkJsInterface {
           Logger.error('WhiteSDK onApplianceInitLoadingChange callback failed: ' + String(err));
         }
       }
-      this.whiteboardCallbacks?.onMessage?.(message);
-      this.postMessageCallback?.onMessage(message);
-      this.slideListener && this.handleSlideEvent(message);
+      this.notify(() => this.whiteboardCallbacks?.onMessage?.(message));
+      this.notify(() => this.postMessageCallback?.onMessage(message));
+      this.handleSlideEvent(message);
     } catch (err) {
       Logger.error(`WhiteSDK postMessage handle err: Code is ${err.code}, message is ${err.message}`)
     }
@@ -145,16 +186,13 @@ export class SdkJsInterface {
   private handleSlideEvent = (jsonObject: Record<string, Object>): void => {
     const type = jsonObject.type;
     if (type === "@slide/_error_") {
-      const errorType = jsonObject.errorType as string;
-      const errorMsg = jsonObject.errorMsg as string;
-      const slideId = jsonObject.slideId as string;
-      const slideIndex = jsonObject.slideIndex as number;
-      this.slideListener?.onSlideError(
-        this.convertToSlideErrorType(errorType),
-        errorMsg,
-        slideId,
-        slideIndex
-      );
+      const errorType = this.convertToSlideErrorType(String(jsonObject.errorType));
+      const errorMsg: string = typeof jsonObject.errorMsg === 'string' ? jsonObject.errorMsg : '';
+      const slideId: string = typeof jsonObject.slideId === 'string' ? jsonObject.slideId : '';
+      const slideIndex: number = typeof jsonObject.slideIndex === 'number' && Number.isInteger(jsonObject.slideIndex)
+        ? jsonObject.slideIndex : -1;
+      this.notify(() => this.getSlideListener()?.onSlideError?.(errorType, errorMsg, slideId, slideIndex));
+      this.notify(() => this.whiteboardCallbacks?.onSlideError?.(errorType, errorMsg, slideId, slideIndex));
     }
   };
   private convertToSlideErrorType = (errorType: string): SlideErrorType => {
@@ -173,9 +211,11 @@ export class SdkJsInterface {
   };
   onPPTMediaPlay = (args: object): void => {
     Logger.info("onPPTMediaPlay called");
+    this.notify(() => this.whiteboardCallbacks?.onPPTMediaPlay?.());
   };
   onPPTMediaPause = (args: object): void => {
     Logger.info("onPPTMediaPause called");
+    this.notify(() => this.whiteboardCallbacks?.onPPTMediaPause?.());
   };
   setupFail = (args: object | string): void => {
     const jsonObject = this.convertToJsonOrNull(args);
