@@ -42,6 +42,49 @@ struct Demo {
 }
 ```
 
+### 同一组件预加载与单次完成回调
+
+将候课配置放在 `WhiteboardSdkOptions`，传入同一个 `WhiteboardController`，并设置
+`Whiteboard({ options, controller, callbacks, autoJoin: false })`。候课和真正入房期间保持
+同一个 Whiteboard 组件挂载；调用 `controller.joinRoom(roomOptions)` 时复用已构造的 SDK。
+
+```typescript
+const options: WhiteboardSdkOptions = {
+  appIdentifier: 'APP_IDENTIFIER', region: Region.CN_HZ,
+  useMultiViews: true, enableAppliancePlugin: true
+};
+const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
+callbacks.onPreloadStateChange = (result: WhitePreloadResult): void => {
+  // success 的 message 为 ""；warn 的 message 说明可选准备失败，仍可正常入房。
+  console.info(JSON.stringify(result));
+};
+// 组件可稍后挂载；timeoutMs 包含附着、握手和 SDK 构造，默认 15000 毫秒。
+await controller.prepareCompletion();
+const info: PreparationInfo | undefined = controller.getPreparationInfo();
+await controller.joinRoom(roomOptions);
+await controller.leaveRoom();
+```
+
+推荐 `prepareCompletion(timeoutMs = 15000): Promise<void>`，成功时没有返回值。
+它表示基础 SDK 已构造，不等待可选模型、App 或教具探针；
+`onPreloadStateChange` 表示本批可选准备已结束，状态为 `success` 或 `warn`，仅投递一次，
+晚设置监听可异步补发。取消、组件替换和旧文档的回包会被丢弃；它不等于 `onRoomReady`，
+不能用它代替房间写入能力或当前 View 的输入就绪检查。
+
+`enableModelPreload` 默认 false；仅显式 true 才提前查询/下载模型。`preloadBuiltinApps`
+省略默认 `Slide`、`Presentation`，`[]` 禁用额外类预热；只预热 App 类，不下载具体课件内容。
+两者与 `enableAppliancePlugin` 独立；默认模型关闭时可先于后端模型预加载灰度使用 App/教具准备。
+`apiHosts?: string[]` 可指定 API 环境，省略保留默认环境；配置在 SDK 构造时捕获，后改原数组不会影响它。
+Room 的 region 可以显式覆盖候课 SDK region。
+
+`slideAppOptions.enableSharedMediaVolume` 默认 false，显式 true 开启 Slide 课件媒体音量共享。
+这些配置都应在组件/SDK 构造前设置。运行时准备状态可通过 `getPreparationInfo()` 查询，
+不需要继续候课时调用 `cancelPreparation()`；正常退出使用可等待的 `leaveRoom()`。
+旧 `prepare(timeoutMs): Promise<PreparationInfo>` 已标记 `@deprecated`，保留原返回值和错误行为，
+新接入请使用 `prepareCompletion()` 与独立的 `getPreparationInfo()`。
+该 API 是可选等待：宿主也可挂载后直接 `joinRoom(roomOptions)`，内部自行等待基础准备，
+无需人为等待回调后才能入房。跨路由复用须保留同一个实际 WebView / Whiteboard 组件及 Controller。
+
 ## 白板操作
 
 ### SDK 初始化失败回调
@@ -57,10 +100,19 @@ callbacks.sdkSetupFail = (error: SDKError) => {
 
 ### Slide 事件与资源加载
 
+`slideAppOptions.showRenderError` 默认 false，与 Android / iOS 一致；显式 true 时显示渲染错误提示。
+渲染错误和资源重试耗尽通知与该 UI 开关独立。
+
 多窗口 Slide 的回调可直接设置在传给 `Whiteboard` 的 `WhiteboardCallbacks` 上：
 
 ```typescript
 const callbacks = new WhiteboardCallbacks()
+  .setOnPPTMediaPlay(() => {
+    // 动态 PPT 音视频播放通知，与 Android / iOS 一致，无媒体参数。
+  })
+  .setOnPPTMediaPause(() => {
+    // 动态 PPT 音视频暂停通知；不在这里重新控制媒体状态。
+  })
   .setOnSlideError((type: SlideErrorType, message: string, slideId: string, slideIndex: number) => {
     console.error(`Slide ${slideId} index ${slideIndex}: ${type}, ${message}`);
   })

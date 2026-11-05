@@ -3,8 +3,13 @@
 ## 本地 Demo 与动态配置
 
 首次构建 Demo 前，将 `entry/src/main/ets/common/demo.local.example.ets` 复制为
-`demo.local.ets`，填写测试 AppIdentifier 与 RoomToken；该文件已被 Git 忽略。
-房间 UUID 在 `common/constant.ets` 中，必须与 Token 对应。
+`demo.local.ets`，填写测试 AppIdentifier、RoomId 与 RoomToken；该文件已被 Git 忽略。
+房间 UUID 必须与 Token 对应，`common/constant.ets` 只转发本地配置，不固定测试房间。
+
+共享 `build-profile.json5` 不包含本机签名配置。使用 DevEco 在本机配置调试签名，
+或只在隔离构建目录注入合法签名；不要把证书路径、签名密码或 `.local-signing/` 的备份加入提交。
+发布 HAR 无需 Demo 的本机签名。ReleaseE2E、LaunchPreloadBenchmark 从各自的
+应用 sandbox 私有 JSON 读取凭据，正式验收请使用 ReleaseE2E，不能把 Debug benchmark 产物当发布包。
 
 `common/DynamicConfig.ets` 导出 `dynamicConfig`，单窗口与教具插件 Demo 都将其传给
 `WhiteboardOptions.dynamicConfig`。值为 region → Harmony 平台 `latest.json` 的公开 URL，
@@ -38,7 +43,7 @@ https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/learning-arkts-
 ## WebView 调试
 
 ```shell
-# 配置 export PATH=$PATH:/Users/flb/Library/OpenHarmony/Sdk/10/toolchains
+# 配置 export PATH="$PATH:<Harmony SDK>/toolchains"
 
 hdc shell
 cat /proc/net/unix | grep devtools

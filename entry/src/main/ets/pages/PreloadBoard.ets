@@ -39,7 +39,7 @@ struct PreloadBoard {
       this.sdkOptions.appliancePluginOptions = { extras: { useWorker: mode === 'mainThread' ? 'mainThread' : 'auto', useSimple: mode !== 'dual', allowImageBitmapFallback: true } };
     }
     this.prepareRequestedAt = new Date().getTime(); this.record('prepare_request');
-    this.controller.prepare().then(() => {
+    this.controller.prepareCompletion().then(() => {
       if (this.disposed) return;
       this.prepared = true; this.status = '白板已准备，等待进入课堂'; this.record('prepared');
       if (AppStorage.get<boolean>('WhitePreloadProbe')) setTimeout(() => { if (!this.disposed) this.enterClass(); }, 2000);

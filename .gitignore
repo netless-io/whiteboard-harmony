@@ -12,3 +12,6 @@ entry/src/main/ets/common/demo.local.ets
 
 # Local preload room credentials
 entry/src/main/ets/common/preload.local.ets
+
+# Machine-only signing backup; never include certificates or passwords in commits.
+.local-signing/

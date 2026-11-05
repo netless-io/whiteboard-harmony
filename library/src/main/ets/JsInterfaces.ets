@@ -211,9 +211,11 @@ export class SdkJsInterface {
   };
   onPPTMediaPlay = (args: object): void => {
     Logger.info("onPPTMediaPlay called");
+    this.notify(() => this.whiteboardCallbacks?.onPPTMediaPlay?.());
   };
   onPPTMediaPause = (args: object): void => {
     Logger.info("onPPTMediaPause called");
+    this.notify(() => this.whiteboardCallbacks?.onPPTMediaPause?.());
   };
   setupFail = (args: object | string): void => {
     const jsonObject = this.convertToJsonOrNull(args);

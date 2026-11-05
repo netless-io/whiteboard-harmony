@@ -12,6 +12,12 @@ import { SDKError } from './SDKError';
 
 export type BackgroundImageSource = 'appliance' | 'whiteSdk';
 
+/** One completion of configured optional preparation; not room readiness. */
+export interface WhitePreloadResult {
+  state: 'success' | 'warn';
+  message: string;
+}
+
 export interface BackgroundImageLoadEvent {
   name: 'backgroundImageLoad';
   state: 'success' | 'failed' | 'cancelled';
@@ -30,6 +36,12 @@ export interface ApplianceInitLoadingChangeEvent {
 }
 
 export class WhiteboardCallbacks {
+  /** Once per SDK batch; warn does not prevent normal room initialization. */
+  onPreloadStateChange?: (result: WhitePreloadResult) => void;
+  /** 动态 PPT 音视频播放通知；与 Android / iOS 一致，不传媒体标识或类型。 */
+  onPPTMediaPlay?: () => void;
+  /** 动态 PPT 音视频暂停通知；与 Android / iOS 一致，不传媒体标识或类型。 */
+  onPPTMediaPause?: () => void;
   /**
    * 错误回调函数，处理错误信息。
    * @param args 错误信息对象
@@ -145,6 +157,16 @@ export class WhiteboardCallbacks {
 
   setOnBackgroundImageLoad(callback: (event: BackgroundImageLoadEvent) => void): WhiteboardCallbacks {
     this.onBackgroundImageLoad = callback;
+    return this;
+  }
+
+  setOnPPTMediaPlay(callback?: () => void): WhiteboardCallbacks {
+    this.onPPTMediaPlay = callback;
+    return this;
+  }
+
+  setOnPPTMediaPause(callback?: () => void): WhiteboardCallbacks {
+    this.onPPTMediaPause = callback;
     return this;
   }
 

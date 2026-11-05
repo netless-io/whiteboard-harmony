@@ -136,7 +136,7 @@ test('actual JSON preserves explicit false, nested options, enums, omission and 
   const room = e.received.find(x => x.method === 'joinRoom').args[0];
   assert.equal(sdk.useMultiViews, false); assert.equal(sdk.loggerOptions.localLog.enabled, false);
   assert.equal(sdk.region, 'cn-hz');
-  assert.deepEqual(sdk.slideAppOptions, { enableScale: false, navigationButtonMode: 'step', syncEventQueuePolicy: 'latest-pending-render' });
+  assert.deepEqual(sdk.slideAppOptions, { enableScale: false, navigationButtonMode: 'step', syncEventQueuePolicy: 'latest-pending-render', showRenderError: false });
   assert.equal(sdk.dynamicConfig['cn-hz'], 'https://example.invalid/latest.json');
   assert.ok(!Object.hasOwn(sdk, 'backgroundImageLoadOptions'));
   assert.equal(room.isWritable, false); assert.equal(room.disableDeviceInputs, false);
@@ -157,11 +157,26 @@ test('SDK region survives actual JSON transport; Room region remains an explicit
   const absent = plain(module.exports.buildSdkOptions({ appIdentifier: 'synthetic-app' }));
   assert.ok(!Object.hasOwn(absent, 'region'), 'omitted region must retain the Web SDK default');
   e.controller.configureSdk(sdkOptions, () => {});
-  const preparing = e.controller.prepare();
+  const preparing = e.controller.prepareCompletion();
   await preparing;
   assert.equal(e.received.find(x => x.method === 'newWhiteSdk').args[0].region, 'sg');
   await e.controller.joinRoom({ roomUuid: 'synthetic-room', roomToken: 'synthetic-token', uid: randomUUID(), region: 'us-sv' });
   assert.equal(e.received.find(x => x.method === 'joinRoom').args[0].region, 'us-sv');
+  await e.controller.disconnect(); return e;
+});
+test('apiHosts keeps omission and copies the host array through actual Native JSON', async () => {
+  const e = environment();
+  const source = fs.readFileSync(path.join(__dirname, '../library/src/main/ets/WhiteboardJoinOptions.ets'), 'utf8');
+  const mod = { exports: {} };
+  vm.runInNewContext(compile(source), { module: mod, exports: mod.exports });
+  const absent = plain(mod.exports.buildSdkOptions({ appIdentifier: 'synthetic-app' }));
+  assert.ok(!Object.hasOwn(absent, 'apiHosts'));
+  const hosts = ['api.netless.group'];
+  const options = mod.exports.buildSdkOptions({ appIdentifier: 'synthetic-app', apiHosts: hosts });
+  hosts[0] = 'example.invalid';
+  e.controller.configureSdk(options, () => {});
+  await e.controller.prepareCompletion();
+  assert.deepEqual(e.received.find(x => x.method === 'newWhiteSdk').args[0].apiHosts, ['api.netless.group']);
   await e.controller.disconnect(); return e;
 });
 test('model preload opt-in preserves omission/false/true across Native JSON', async () => {
@@ -175,7 +190,7 @@ test('model preload opt-in preserves omission/false/true across Native JSON', as
     assert.equal(payload.enableModelPreload, enabled);
     assert.equal(Object.hasOwn(payload, 'enableModelPreload'), enabled !== undefined);
     e.controller.configureSdk(options, () => {});
-    await e.controller.prepare();
+    await e.controller.prepareCompletion();
     assert.equal(e.received.filter(x => x.method === 'newWhiteSdk').at(-1).args[0].enableModelPreload, enabled);
   }
   return e;
@@ -193,7 +208,7 @@ test('App preload list preserves omission, empty selection and exact kind names 
     assert.equal(Object.hasOwn(payload, 'preloadBuiltinApps'), kinds !== undefined);
     assert.deepEqual(payload.preloadBuiltinApps, kinds);
     e.controller.configureSdk(options, () => {});
-    await e.controller.prepare();
+    await e.controller.prepareCompletion();
     assert.deepEqual(e.received.filter(x => x.method === 'newWhiteSdk').at(-1).args[0].preloadBuiltinApps, kinds);
   }
   return e;
@@ -208,7 +223,7 @@ test('real detached join callback cannot announce roomReady on a new prepared co
   assert.equal(a.joinReplies.length, 1);
   controller.detachWhiteboard(a.native); await rejected;
   controller.configureSdk({ appIdentifier: 'synthetic-app', region: 'sg' }, () => ready.push('B'));
-  controller.attachWhiteboard(b.native); await controller.prepare();
+  controller.attachWhiteboard(b.native); await controller.prepareCompletion();
   assert.equal(b.native.state, 'idle'); assert.equal(b.native.preparationInfo().ready, true);
   a.joinReplies[0]();
   for (let turn = 0; turn < 20; turn++) await Promise.resolve();
@@ -332,7 +347,7 @@ test('Slide URL interception round-trips asynchronously, once, with fallback and
 test('Slide options preserve explicit false/zero, nested fields and omission across Native JSON', async () => {
   const e = environment();
   const slideAppOptions = { resourceMaxRetries: 0, showRenderError: false, debug: false, forceCanvas: false,
-    bgColor: '#ffffff', invisibleBehavior: 'pause', enableGlobalClick: false };
+    bgColor: '#ffffff', invisibleBehavior: 'pause', enableGlobalClick: false, enableSharedMediaVolume: false };
   await e.join({ enableSlideInterrupterAPI: true, slideAppOptions });
   const sdk = e.received.find(x => x.method === 'newWhiteSdk').args[0];
   assert.equal(sdk.enableSlideInterrupterAPI, true);
@@ -341,8 +356,64 @@ test('Slide options preserve explicit false/zero, nested fields and omission acr
   const other = environment(); await other.join({ enableSlideInterrupterAPI: false });
   const disabled = other.received.find(x => x.method === 'newWhiteSdk').args[0];
   assert.equal(disabled.enableSlideInterrupterAPI, false);
-  assert.ok(!Object.hasOwn(disabled, 'slideAppOptions'));
-  await other.controller.disconnect(); return e;
+  assert.deepEqual(disabled.slideAppOptions, { showRenderError: false });
+  await other.controller.disconnect();
+  const enabled = environment(); await enabled.join({ slideAppOptions: { enableSharedMediaVolume: true } });
+  assert.deepEqual(enabled.received.find(x => x.method === 'newWhiteSdk').args[0].slideAppOptions, { enableSharedMediaVolume: true, showRenderError: false });
+  await enabled.controller.disconnect(); return e;
+});
+test('Slide showRenderError defaults false in actual JSON and preserves explicit true without mutating input', async () => {
+  let e;
+  for (const input of [undefined, {}, { showRenderError: undefined, resourceMaxRetries: 0 }, { showRenderError: false }, { showRenderError: true }]) {
+    e = environment();
+    const original = JSON.stringify(input);
+    const buildersSource = fs.readFileSync(path.join(__dirname, '../library/src/main/ets/WhiteboardJoinOptions.ets'), 'utf8');
+    const mod = { exports: {} }; vm.runInNewContext(compile(buildersSource), { module: mod, exports: mod.exports });
+    const options = mod.exports.buildSdkOptions({ appIdentifier: 'synthetic-app', slideAppOptions: input });
+    e.controller.configureSdk(options, () => {}); await e.controller.prepareCompletion();
+    const actual = e.received.find(x => x.method === 'newWhiteSdk').args[0].slideAppOptions;
+    assert.equal(actual.showRenderError, input?.showRenderError ?? false);
+    if (input?.resourceMaxRetries === 0) assert.equal(actual.resourceMaxRetries, 0);
+    assert.equal(JSON.stringify(input), original);
+    assert.ok(!Object.hasOwn(actual, 'forceCanvas'), 'unrelated omitted settings remain absent');
+  }
+  return e;
+});
+test('real pinned PPT mediaCall reaches optional no-argument host callbacks with exact scoped JSON', async () => {
+  const e = environment(); await e.join();
+  const seen = [];
+  e.nativeCallbacks.setOnPPTMediaPlay((...args) => seen.push(['play', args]))
+    .setOnPPTMediaPause((...args) => seen.push(['pause', args]));
+  const events = e.life.inScope(plain(e.native.scope), () => new e.sdkEvents.constructor(true));
+  events.onPPTMediaPlay('shape-a', 'audio'); events.onPPTMediaPause('shape-a', 'audio');
+  events.onPPTMediaPlay('shape-b', 'video'); events.onPPTMediaPause('shape-b', 'video');
+  assert.deepEqual(seen, [['play', []], ['pause', []], ['play', []], ['pause', []]]);
+  const wire = e.wire.filter(x => ['sdk.onPPTMediaPlay', 'sdk.onPPTMediaPause'].includes(x.method));
+  assert.equal(wire.length, 4);
+  assert.deepEqual(wire[0].args.data, { scope: plain(e.native.scope), value: { shapeId: 'shape-a', type: 'audio' } });
+  assert.deepEqual(wire[3].args.data, { scope: plain(e.native.scope), value: { shapeId: 'shape-b', type: 'video' } });
+  const count = seen.length;
+  for (const scope of [{ documentId: 'old', generation: 1 }, { ...plain(e.native.scope), generation: 99 }]) {
+    for (const method of ['sdk.onPPTMediaPlay', 'sdk.onPPTMediaPause']) e.scoped.scopedCall(scope)(method, { shapeId: 'stale', type: 'audio' });
+  }
+  assert.equal(seen.length, count);
+  await e.controller.disconnect(); return e;
+});
+test('PPT media host exceptions, missing listeners and invalidated events remain isolated', async () => {
+  const e = environment(); await e.join(); let play = 0, pause = 0;
+  const events = e.life.inScope(plain(e.native.scope), () => new e.sdkEvents.constructor(true));
+  assert.doesNotThrow(() => events.onPPTMediaPlay('shape', 'audio'));
+  e.nativeCallbacks.setOnPPTMediaPlay(() => { play++; throw new Error('synthetic host play failure'); })
+    .setOnPPTMediaPause(() => { pause++; throw new Error('synthetic host pause failure'); });
+  assert.doesNotThrow(() => events.onPPTMediaPlay('shape', 'video'));
+  assert.doesNotThrow(() => events.onPPTMediaPause('shape', 'video'));
+  assert.deepEqual([play, pause], [1, 1]);
+  e.nativeCallbacks.setOnPPTMediaPlay().setOnPPTMediaPause();
+  events.onPPTMediaPlay('shape', 'audio'); events.onPPTMediaPause('shape', 'audio');
+  assert.deepEqual([play, pause], [1, 1]);
+  e.nativeCallbacks.setOnPPTMediaPlay(() => play++).setOnPPTMediaPause(() => pause++);
+  e.native.invalidate(); events.onPPTMediaPlay('shape', 'audio'); events.onPPTMediaPause('shape', 'audio');
+  assert.deepEqual([play, pause], [1, 1]); return e;
 });
 for (const api of ['disconnect', 'leaveRoom', 'room.disconnect', 'Bridge room.disconnect']) {
   test(`${api} completes real cleanup once and remains idempotent`, async () => {

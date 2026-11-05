@@ -14,6 +14,7 @@ function environment(){
   b.dsInitBridge.callHandler=(m,a,cb)=>{
    if(m==='sdk.getLifecycle'){handshakeReply=()=>cb({value:JSON.stringify({documentId:'doc'})});if(handshake)handshakeReply();}
    else if(m==='sdk.newWhiteSdk'){setups.push(a.at(-1));b.completeSetup=(value='{}',scope=a[0].__whiteScope)=>cb({value,scope});if(setup)b.completeSetup();}
+   else if(m==='sdk.observePreload'){b.observations=(b.observations||0)+1;b.completePreload=(value={state:'success',message:''},scope=a[0].__whiteScope)=>cb({value:JSON.stringify(value),scope});}
    else if(m==='sdk.joinRoom'){b.actualUid=a[1].uid;joins.push(JSON.parse(JSON.stringify(a[1])));cb({scope:{...b.scope},value:'{}'});}
    else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;const scope={...b.scope};b.completeLeave=()=>cb({scope,value:'{}'});if(!b.holdLeave)b.completeLeave();}
   };b.completeHandshake=()=>handshakeReply();return b;
@@ -115,5 +116,28 @@ test('equivalent reordered nested SDK JSON shares the prepared instance',async()
  const e=environment(),b=e.host();b.prepare({appIdentifier:'app',dynamicConfig:{'cn-hz':'url-cn',us:'url-us'}},15000,()=>{});
  b.prepare({dynamicConfig:{us:'url-us','cn-hz':'url-cn'},appIdentifier:'app'},15000,()=>{});
  assert.equal(e.setups.length,1);assert.equal(b.preparationInfo().ready,true);
+});
+test('preload completion buffers for late listener and delivers original warn once',async()=>{
+ const e=environment(),b=e.host(),results=[];
+ b.prepare({appIdentifier:'app'},15000,()=>{});assert.equal(b.observations,1);
+ b.completePreload({state:'warn',message:'Slide preparation failed'});await e.advance(0);assert.equal(results.length,0);
+ b.setPreloadCallback(result=>results.push(result));await e.advance(0);assert.equal(results.length,1);assert.equal(results[0].state,'warn');
+ b.completePreload();b.setPreloadCallback(result=>results.push(result));await e.advance(0);assert.equal(results.length,1);
+});
+test('cancelled and replaced preload tasks never deliver late results',async()=>{
+ const e=environment(),b=e.host(),results=[];b.setPreloadCallback(result=>results.push(result));
+ b.prepare({appIdentifier:'app'},15000,()=>{});const late=b.completePreload;b.cancelPreparation();late();await e.advance(0);assert.equal(results.length,0);
+ b.prepare({appIdentifier:'other'},15000,()=>{});late();await e.advance(0);assert.equal(results.length,0);
+ b.completePreload();await e.advance(0);assert.equal(results.length,1);
+});
+test('wrong document and malformed optional result are ignored without affecting readiness',async()=>{
+ const e=environment(),b=e.host(),results=[];b.setPreloadCallback(result=>results.push(result));
+ b.prepare({appIdentifier:'app'},15000,()=>{});b.completePreload({state:'success',message:''},{documentId:'old',generation:0});
+ b.completePreload({state:'warn',message:''});await e.advance(0);assert.equal(results.length,0);assert.equal(b.preparationInfo().ready,true);
+ b.completePreload();await e.advance(0);assert.equal(results.length,1);
+});
+test('throwing preload listener is isolated and never called a second time',async()=>{
+ const e=environment(),b=e.host();let calls=0;b.setPreloadCallback(()=>{calls++;throw Error('host');});
+ b.prepare({appIdentifier:'app'},15000,()=>{});b.completePreload();await e.advance(0);b.completePreload();await e.advance(0);assert.equal(calls,1);assert.equal(b.preparationInfo().ready,true);
 });
 (async()=>{for(const {name,fn} of tests){await fn();console.log('PASS '+name);}console.log(tests.length+' owner unit tests passed');})().catch(e=>{console.error(e);process.exitCode=1});

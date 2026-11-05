@@ -5,6 +5,7 @@ export {
   BackgroundImageLoadEvent,
   BackgroundImageSource,
   WhiteboardCallbacks,
+  WhitePreloadResult,
 } from './src/main/ets/WhiteboardCallbacks'
 
 export { WhiteboardController } from "./src/main/ets/WhiteboardController"

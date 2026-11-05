@@ -8,7 +8,9 @@ export type SlideSyncEventQueuePolicy = 'fifo' | 'latest-pending-render';
 export type SlideNavigationButtonMode = 'page' | 'step';
 
 export interface SlideAppOptions {
-  /** 显示 Slide 渲染错误提示。未传时保留内嵌 app-slide 的默认值。 */
+  /** 是否开启 Slide 课件媒体音量共享，默认 false。 */
+  enableSharedMediaVolume?: boolean;
+  /** 显示 Slide 渲染错误提示。默认 false，与 Android / iOS 一致。 */
   showRenderError?: boolean;
   /** 显示 Slide 调试控制面板，默认 false。 */
   debug?: boolean;
@@ -168,6 +170,8 @@ export type BuiltinAppPreloadKind = 'Slide' | 'Presentation' | 'MediaPlayer' | '
 
 export interface WhiteboardSdkOptions {
   appIdentifier: string;
+  /** 自定义 API hosts；省略时保留 Web SDK 的默认环境。 */
+  apiHosts?: string[];
   /** 提前查询并下载房间模型，默认 false；仅对已完成服务端准备的项目和区域显式开启。 */
   enableModelPreload?: boolean;
   /** SDK 构造时后台准备 App 类。省略默认 Slide / Presentation；[] 关闭。
@@ -228,6 +232,7 @@ export interface SdkOptions {
   enableModelPreload?: boolean;
   preloadBuiltinApps?: BuiltinAppPreloadKind[];
   appIdentifier: string;
+  apiHosts?: string[];
   region?: Region;
   log: boolean;
   useMultiViews?: boolean;

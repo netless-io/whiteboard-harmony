@@ -31,12 +31,14 @@ export struct Whiteboard {
   @Prop options: WhiteboardSdkOptions | WhiteboardOptions
   // Controller is an identity-bearing handle. @Prop would clone its mutable fields.
   controller: WhiteboardController = new WhiteboardController()
-  @Prop callbacks: WhiteboardCallbacks
+  @Prop @Watch('onCallbacksChanged') callbacks: WhiteboardCallbacks
   @Prop autoJoin: boolean = true
   @Prop webDebug: boolean = true
   private webController = new webview.WebviewController();
   private dsBridge = new DsBridge(this.webController)
   private pageInitialized: boolean = false
+
+  onCallbacksChanged(): void { this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange); }
 
   aboutToAppear(): void {
     try {
@@ -104,6 +106,7 @@ export struct Whiteboard {
           if (this.pageInitialized) return;
           this.pageInitialized = true;
           const sdkJsInterface = new SdkJsInterface(this.callbacks)
+          this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange)
           const roomJsInterface = new RoomJsInterface(this.callbacks)
 
           validateBackgroundImageLoadOptions(this.options.backgroundImageLoadOptions)
@@ -120,7 +123,7 @@ export struct Whiteboard {
           if (this.autoJoin) {
             this.controller.joinRoom(this.options as WhiteboardOptions).catch((error: Error) => Logger.error('join room error', error))
           } else {
-            this.controller.prepare().catch((error: Error) => Logger.error('prepare error', error))
+            this.controller.prepareCompletion().catch((error: Error) => Logger.error('prepare error', error))
           }
         })
         .onPageVisible((event) => {

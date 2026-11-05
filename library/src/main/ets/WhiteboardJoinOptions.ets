@@ -1,4 +1,4 @@
-import { RoomOptions, WhiteboardRoomOptions, WhiteboardSdkOptions, SdkOptions } from './WhiteboardOptions';
+import { RoomOptions, WhiteboardRoomOptions, WhiteboardSdkOptions, SdkOptions, SlideAppOptions } from './WhiteboardOptions';
 
 export function buildRoomOptions(options: WhiteboardRoomOptions): RoomOptions {
   return {
@@ -19,10 +19,14 @@ export function buildRoomOptions(options: WhiteboardRoomOptions): RoomOptions {
   };
 }
 
-/** Optional host values stay absent across JSON serialization, retaining their priority. */
+/** Optional host values stay absent, except the shared Native defaults applied below. */
 export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
+  const slideAppOptions: SlideAppOptions = options.slideAppOptions
+    ? JSON.parse(JSON.stringify(options.slideAppOptions)) as SlideAppOptions : {};
+  slideAppOptions.showRenderError = options.slideAppOptions?.showRenderError ?? false;
   return {
     appIdentifier: options.appIdentifier,
+    apiHosts: options.apiHosts === undefined ? undefined : [...options.apiHosts],
     enableModelPreload: options.enableModelPreload,
     preloadBuiltinApps: options.preloadBuiltinApps === undefined ? undefined : [...options.preloadBuiltinApps],
     region: options.region,
@@ -34,7 +38,7 @@ export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
     enableAppliancePlugin: options.enableAppliancePlugin,
     appliancePluginOptions: options.appliancePluginOptions,
     presentationAppOptions: options.presentationAppOptions,
-    slideAppOptions: options.slideAppOptions,
+    slideAppOptions: slideAppOptions,
     enableSlideInterrupterAPI: options.enableSlideInterrupterAPI,
     loggerOptions: options.localLogOptions ? { localLog: options.localLogOptions } : undefined,
     backgroundImageLoadOptions: options.backgroundImageLoadOptions,

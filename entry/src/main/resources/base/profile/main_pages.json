@@ -3,6 +3,8 @@
     "pages/Index",
     "pages/SingleBoard",
     "pages/MultipleBoard",
-    "pages/PreloadBoard"
+    "pages/PreloadBoard",
+    "pages/LaunchPreloadBenchmark",
+    "pages/ReleaseE2E"
   ]
 }

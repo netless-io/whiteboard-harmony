@@ -87,8 +87,21 @@ export class WhiteboardController {
       }, timeoutMs);
     });
   }
-  /** Milliseconds; completion means JS SDK constructed, with no room joined. */
+  /**
+   * Wait for attachment, Bridge handshake and JS SDK construction. Milliseconds; default 15000.
+   * Does not join a Room or wait for optional preloading. Use getPreparationInfo() for diagnostics.
+   */
+  prepareCompletion(timeoutMs: number = 15000): Promise<void> {
+    return this.prepareInternal(timeoutMs).then((): void => {});
+  }
+  /**
+   * Milliseconds; completion means JS SDK constructed, with no room joined.
+   * @deprecated Use prepareCompletion(timeoutMs), then getPreparationInfo() for diagnostics.
+   */
   prepare(timeoutMs: number = 15000): Promise<PreparationInfo> {
+    return this.prepareInternal(timeoutMs);
+  }
+  private prepareInternal(timeoutMs: number): Promise<PreparationInfo> {
     const started: number = new Date().getTime();
     return new Promise<PreparationInfo>((resolve, reject) => {
       let settled: boolean = false;

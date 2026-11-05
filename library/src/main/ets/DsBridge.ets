@@ -1,6 +1,7 @@
 import { Logger } from './Logger';
 import { RoomOptions, SdkOptions, PreparationInfo } from './WhiteboardOptions';
 import { util } from '@kit.ArkTS';
+import { WhitePreloadResult } from './WhiteboardCallbacks';
 
 interface NativeJoinRoomOptions extends RoomOptions {
   __nativeTags?: Record<string, string>;
@@ -56,6 +57,42 @@ export class DsBridge {
   private setupCount: number = 0;
   private preparationStarted: number = 0;
   private preparationElapsed: number = 0;
+  private preloadCallback?: (result: WhitePreloadResult) => void;
+  private preloadResult?: WhitePreloadResult;
+  private preloadEpoch: number = 0;
+  private preloadObserved: boolean = false;
+  private preloadDelivered: boolean = false;
+
+  setPreloadCallback(callback?: (result: WhitePreloadResult) => void): void {
+    this.preloadCallback = callback;
+    setTimeout(() => this.deliverPreloadResult(), 0);
+  }
+  private deliverPreloadResult(): void {
+    if (this.invalid || !this.preparedKey || this.preloadDelivered || !this.preloadResult || !this.preloadCallback) return;
+    this.preloadDelivered = true;
+    try { this.preloadCallback(this.preloadResult); }
+    catch (_) { Logger.error('onPreloadStateChange callback failed'); }
+  }
+  private observePreload(): void {
+    if (this.preloadObserved || !this.sdkOptions || !this.preparedKey) return;
+    this.preloadObserved = true;
+    const epoch: number = this.preloadEpoch;
+    const key: string = this.preparedKey;
+    const document: string = this.scope.documentId;
+    const marker: LifecycleMarker = new LifecycleMarker(); marker.__whiteScope.documentId = document;
+    this.dsInitBridge.callHandler('sdk.observePreload', [marker, this.sdkOptions], (result: object) => {
+      const envelope: LifecycleEnvelope = result as LifecycleEnvelope;
+      if (this.invalid || epoch !== this.preloadEpoch || key !== this.preparedKey ||
+        !envelope.scope || envelope.scope.documentId !== document || this.scope.documentId !== document || envelope.scope.generation !== 0) return;
+      try {
+        const value: WhitePreloadResult = JSON.parse(envelope.value as string) as WhitePreloadResult;
+        if (typeof value.message !== 'string' || !((value.state === 'success' && value.message === '') ||
+          (value.state === 'warn' && value.message.trim().length > 0))) return;
+        this.preloadResult = value;
+        setTimeout(() => { if (epoch === this.preloadEpoch) this.deliverPreloadResult(); }, 0);
+      } catch (_) { Logger.error('Invalid preload completion payload'); }
+    });
+  }
 
   preparationInfo(): PreparationInfo {
     return { ready: !this.invalid && this.preparedKey.length > 0, viewId: this.viewId,
@@ -72,9 +109,11 @@ export class DsBridge {
     this.preparedKey = this.isError(value) ? '' : this.preparingKey;
     this.preparationElapsed = new Date().getTime() - this.preparationStarted;
     this.logPreload(this.isError(value) ? 'prepare_failed' : 'prepare_ready');
+    if (!this.isError(value)) this.observePreload();
     callbacks.forEach((callback: Callback<object>) => callback(value));
   }
   cancelPreparation(): void {
+    this.preloadEpoch++; this.preloadResult = undefined; this.preloadObserved = false; this.preloadDelivered = false;
     this.preparedKey = '';
     this.finishPreparation(this.error('Cancelled'));
   }
