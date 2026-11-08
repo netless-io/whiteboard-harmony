@@ -13,7 +13,7 @@ interface PreloadDemoRecord {
 @Component
 struct PreloadBoard {
   private controller: WhiteboardController = new WhiteboardController();
-  private sdkOptions: WhiteboardSdkOptions = { appIdentifier: AppIdentifier, useMultiViews: true, enableAppliancePlugin: true, appliancePluginOptions: { extras: { useWorker: "auto", useSimple: true, allowImageBitmapFallback: true } } };
+  private sdkOptions: WhiteboardSdkOptions = { appIdentifier: AppIdentifier, useMultiViews: true, enableAppliancePlugin: true, enablePreLoadAppliancePlugin: true, preloadBuiltinApps: ['Slide', 'Presentation'], appliancePluginOptions: { extras: { useWorker: "auto", useSimple: true, allowImageBitmapFallback: true } } };
   private callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
   @State status: string = '正在准备白板…';
   @State prepared: boolean = false;
@@ -38,7 +38,14 @@ struct PreloadBoard {
       const mode = AppStorage.get<string>('WhiteWorkerProbeMode');
       this.sdkOptions.appliancePluginOptions = { extras: { useWorker: mode === 'mainThread' ? 'mainThread' : 'auto', useSimple: mode !== 'dual', allowImageBitmapFallback: true } };
     }
+    this.callbacks.onPreloadStateChange = (result): void => {
+      // Reports optional preparation only; input readiness is checked after join.
+      console.info('WHITE_PRELOAD_OPTIONAL ' + JSON.stringify(result));
+      this.record('optional_preload_complete');
+    };
     this.prepareRequestedAt = new Date().getTime(); this.record('prepare_request');
+    // Optional base JS readiness; onPreloadStateChange reports optional preparation separately.
+    // Wait for room/input readiness before actual drawing.
     this.controller.prepareCompletion().then(() => {
       if (this.disposed) return;
       this.prepared = true; this.status = '白板已准备，等待进入课堂'; this.record('prepared');
@@ -54,7 +61,7 @@ struct PreloadBoard {
     this.joining = true; this.status = '正在进入课堂…'; this.record('join_entry');
     try {
       const room: WhiteboardRoomOptions = { roomUuid: PreloadRoomUuid, roomToken: PreloadRoomToken,
-        uid: 'harmony-preload-' + new Date().getTime(), region: Region.CN_HZ, writable: false, windowParams: new WindowParams() };
+        uid: 'harmony-preload-' + new Date().getTime(), region: Region.CN_HZ, writable: true, windowParams: new WindowParams() };
       await this.controller.joinRoom(room);
       this.joined = true; this.status = '已进入课堂'; this.record('room_ready');
       if (AppStorage.get<boolean>('WhitePreloadProbe')) setTimeout(() => { this.leaveClass(); }, 5000);

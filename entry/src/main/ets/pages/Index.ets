@@ -9,6 +9,10 @@ struct Index {
   build() {
     Row() {
       Column() {
+        Button('普通入房（点击后初始化）').fontSize(24).margin({ top: 20 })
+          .onClick(() => { router.pushUrl({ url: 'pages/LaunchPreloadBenchmark', params: { mode: 'direct' } }); })
+        Button('启动页预加载 → 进入课堂').fontSize(24).margin({ top: 20 })
+          .onClick(() => { router.pushUrl({ url: 'pages/LaunchPreloadBenchmark', params: { mode: 'preload' } }); })
         Button('预加载候课 → 进入课堂').fontSize(24).margin({ top: 20 })
           .onClick(() => { router.pushUrl({ url: 'pages/PreloadBoard' }); })
         Button() {

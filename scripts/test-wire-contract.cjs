@@ -460,3 +460,16 @@ process.on('beforeExit', () => {
   console.log(`${selected.length} selected transport contract tests passed`);
   completed = true;
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
+(async () => {
+ const module = {exports:{}};
+ vm.runInNewContext(compile(fs.readFileSync(path.join(__dirname,'../library/src/main/ets/WhiteboardJoinOptions.ets'),'utf8')), {module,exports:module.exports,require:()=>({}),JSON});
+ for(const enabled of [undefined,false,true]) {
+  const options=module.exports.buildSdkOptions({appIdentifier:'synthetic-app',enableAppliancePlugin:true,enablePreLoadAppliancePlugin:enabled});
+  const payload=plain(options);assert.equal(Object.hasOwn(payload,'enablePreLoadAppliancePlugin'),enabled!==undefined);
+  assert.equal(payload.enablePreLoadAppliancePlugin,enabled);
+  const e=environment();e.controller.configureSdk(options,()=>{});await e.controller.prepareCompletion();
+  assert.equal(e.received.filter(x=>x.method==='newWhiteSdk').at(-1).args[0].enablePreLoadAppliancePlugin,enabled);
+ }
+ console.log('PASS actual Native/Bridge appliance preload flag JSON: omitted / false / true');
+})().catch(error=>{console.error(error);process.exitCode=1;});

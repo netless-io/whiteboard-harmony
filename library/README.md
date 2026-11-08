@@ -51,7 +51,8 @@ struct Demo {
 ```typescript
 const options: WhiteboardSdkOptions = {
   appIdentifier: 'APP_IDENTIFIER', region: Region.CN_HZ,
-  useMultiViews: true, enableAppliancePlugin: true
+  useMultiViews: true, enableAppliancePlugin: true,
+  enablePreLoadAppliancePlugin: true, preloadBuiltinApps: ['Slide', 'Presentation']
 };
 const callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
 callbacks.onPreloadStateChange = (result: WhitePreloadResult): void => {
@@ -72,8 +73,10 @@ await controller.leaveRoom();
 不能用它代替房间写入能力或当前 View 的输入就绪检查。
 
 `enableModelPreload` 默认 false；仅显式 true 才提前查询/下载模型。`preloadBuiltinApps`
-省略默认 `Slide`、`Presentation`，`[]` 禁用额外类预热；只预热 App 类，不下载具体课件内容。
-两者与 `enableAppliancePlugin` 独立；默认模型关闭时可先于后端模型预加载灰度使用 App/教具准备。
+省略或 `[]` 均不预加载；只有显式非空列表才预热 App 类，不下载具体课件内容。
+`enableAppliancePlugin` 只开启教具功能；新开关 `enablePreLoadAppliancePlugin` 默认为 false，二者同时为 true 才在入房前准备探针和所需 Worker。模型、动态配置、App 类和教具准备分别按各自显式配置启用。
+
+普通入口直接创建组件并入房，省略上述预加载配置；候课入口保留同一个组件/Controller，显式配置所需预加载，再调用 `joinRoom`。构造后台准备无自动 15 秒时限；宿主可选调用 `prepareCompletion` 等基础 JS 就绪，默认等待 15 秒。`onPreloadStateChange` 仅在启用至少一项可选准备时回调，不等同于输入就绪。
 `apiHosts?: string[]` 可指定 API 环境，省略保留默认环境；配置在 SDK 构造时捕获，后改原数组不会影响它。
 Room 的 region 可以显式覆盖候课 SDK region。
 

@@ -74,7 +74,12 @@ export class DsBridge {
     catch (_) { Logger.error('onPreloadStateChange callback failed'); }
   }
   private observePreload(): void {
-    if (this.preloadObserved || !this.sdkOptions || !this.preparedKey) return;
+    if (!this.sdkOptions) return;
+    const options: SdkOptions = this.sdkOptions as SdkOptions;
+    const optional: boolean = options.enableModelPreload === true || options.dynamicConfig != undefined ||
+      (options.preloadBuiltinApps !== undefined && options.preloadBuiltinApps.length > 0) ||
+      (options.enableAppliancePlugin === true && options.enablePreLoadAppliancePlugin === true);
+    if (!optional || this.preloadObserved || !this.preparedKey) return;
     this.preloadObserved = true;
     const epoch: number = this.preloadEpoch;
     const key: string = this.preparedKey;
@@ -118,11 +123,17 @@ export class DsBridge {
     this.finishPreparation(this.error('Cancelled'));
   }
   /** Local document/JS SDK readiness only; no Room, socket or first-frame guarantee. */
+  prepareInBackground(sdkOptions: object): void {
+    this.prepareConfiguration(sdkOptions, 0, (value: object) => {
+      if (this.isError(value)) Logger.error('Background SDK preparation failed');
+    }, false);
+  }
   prepare(sdkOptions: object, timeoutMs: number, callback: Callback<object>): void {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) { callback(this.error('InvalidPreparationOptions')); return; }
     this.prepareConfiguration(sdkOptions, timeoutMs, callback, false);
   }
   private prepareConfiguration(sdkOptions: object, timeoutMs: number, callback: Callback<object>, admitted: boolean): void {
-    if (this.invalid || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    if (this.invalid || !Number.isFinite(timeoutMs) || timeoutMs < 0) {
       callback(this.error(this.invalid ? 'HostInvalid' : 'InvalidPreparationOptions')); return;
     }
     const snapshot: object = JSON.parse(JSON.stringify(sdkOptions)) as object;
@@ -143,7 +154,7 @@ export class DsBridge {
     }
     this.preparationWaiters?.push(callback);
     const epoch: number = this.preparationEpoch;
-    setTimeout(() => {
+    if (timeoutMs > 0) setTimeout(() => {
       if (epoch === this.preparationEpoch && this.preparationWaiters) this.finishPreparation(this.error('PrepareTimeout'));
     }, timeoutMs);
     if (!starting) return;

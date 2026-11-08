@@ -117,27 +117,44 @@ test('equivalent reordered nested SDK JSON shares the prepared instance',async()
  b.prepare({dynamicConfig:{us:'url-us','cn-hz':'url-cn'},appIdentifier:'app'},15000,()=>{});
  assert.equal(e.setups.length,1);assert.equal(b.preparationInfo().ready,true);
 });
+test('ordinary optional-off configs never observe preload',async()=>{
+ for(const options of [{},{enableModelPreload:false},{preloadBuiltinApps:[]},{enableAppliancePlugin:true},{enablePreLoadAppliancePlugin:true}]) {
+  const e=environment(),b=e.host();b.prepare({appIdentifier:'app',...options},15000,()=>{});
+  assert.equal(b.observations,undefined);assert.equal(b.preparationInfo().ready,true);
+ }
+});
+test('each explicit optional preparation enables observation',async()=>{
+ for(const options of [{enableModelPreload:true},{dynamicConfig:{}},{preloadBuiltinApps:['Slide']},{enableAppliancePlugin:true,enablePreLoadAppliancePlugin:true}]) {
+  const e=environment(),b=e.host();b.prepare({appIdentifier:'app',...options},15000,()=>{});assert.equal(b.observations,1);
+ }
+});
+test('background construction has no implicit deadline and join reuses pending setup',async()=>{
+ const e=environment(),b=e.host({setup:false});b.prepareInBackground({appIdentifier:'app'});
+ await e.advance(20000);assert.equal(b.preparationInfo().ready,false);assert.equal(e.setups.length,1);
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.completeSetup();
+ assert.equal(e.setups.length,1);assert.equal(e.joins.length,1);assert.equal(b.preparationInfo().ready,true);
+});
 test('preload completion buffers for late listener and delivers original warn once',async()=>{
  const e=environment(),b=e.host(),results=[];
- b.prepare({appIdentifier:'app'},15000,()=>{});assert.equal(b.observations,1);
+ b.prepare({appIdentifier:'app',preloadBuiltinApps:['Slide']},15000,()=>{});assert.equal(b.observations,1);
  b.completePreload({state:'warn',message:'Slide preparation failed'});await e.advance(0);assert.equal(results.length,0);
  b.setPreloadCallback(result=>results.push(result));await e.advance(0);assert.equal(results.length,1);assert.equal(results[0].state,'warn');
  b.completePreload();b.setPreloadCallback(result=>results.push(result));await e.advance(0);assert.equal(results.length,1);
 });
 test('cancelled and replaced preload tasks never deliver late results',async()=>{
  const e=environment(),b=e.host(),results=[];b.setPreloadCallback(result=>results.push(result));
- b.prepare({appIdentifier:'app'},15000,()=>{});const late=b.completePreload;b.cancelPreparation();late();await e.advance(0);assert.equal(results.length,0);
- b.prepare({appIdentifier:'other'},15000,()=>{});late();await e.advance(0);assert.equal(results.length,0);
+ b.prepare({appIdentifier:'app',preloadBuiltinApps:['Slide']},15000,()=>{});const late=b.completePreload;b.cancelPreparation();late();await e.advance(0);assert.equal(results.length,0);
+ b.prepare({appIdentifier:'other',preloadBuiltinApps:['Slide']},15000,()=>{});late();await e.advance(0);assert.equal(results.length,0);
  b.completePreload();await e.advance(0);assert.equal(results.length,1);
 });
 test('wrong document and malformed optional result are ignored without affecting readiness',async()=>{
  const e=environment(),b=e.host(),results=[];b.setPreloadCallback(result=>results.push(result));
- b.prepare({appIdentifier:'app'},15000,()=>{});b.completePreload({state:'success',message:''},{documentId:'old',generation:0});
+ b.prepare({appIdentifier:'app',preloadBuiltinApps:['Slide']},15000,()=>{});b.completePreload({state:'success',message:''},{documentId:'old',generation:0});
  b.completePreload({state:'warn',message:''});await e.advance(0);assert.equal(results.length,0);assert.equal(b.preparationInfo().ready,true);
  b.completePreload();await e.advance(0);assert.equal(results.length,1);
 });
 test('throwing preload listener is isolated and never called a second time',async()=>{
  const e=environment(),b=e.host();let calls=0;b.setPreloadCallback(()=>{calls++;throw Error('host');});
- b.prepare({appIdentifier:'app'},15000,()=>{});b.completePreload();await e.advance(0);b.completePreload();await e.advance(0);assert.equal(calls,1);assert.equal(b.preparationInfo().ready,true);
+ b.prepare({appIdentifier:'app',preloadBuiltinApps:['Slide']},15000,()=>{});b.completePreload();await e.advance(0);b.completePreload();await e.advance(0);assert.equal(calls,1);assert.equal(b.preparationInfo().ready,true);
 });
 (async()=>{for(const {name,fn} of tests){await fn();console.log('PASS '+name);}console.log(tests.length+' owner unit tests passed');})().catch(e=>{console.error(e);process.exitCode=1});

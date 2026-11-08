@@ -132,16 +132,21 @@ struct ReleaseE2E {
     this.room = room;
     const emptyApps: boolean = AppStorage.get<boolean>('ReleaseE2EEmptyApps') ?? false;
     const shared: boolean = AppStorage.get<boolean>('ReleaseE2ESharedVolume') ?? false;
-    // Leave model/App/volume options absent for the default constructor case.
+    const preload: boolean = AppStorage.get<boolean>('ReleaseE2EPreload') ?? false;
+    // Default ordinary mode leaves all optional preparation off.
     this.sdkOptions = { appIdentifier: room.appIdentifier, region: Region.CN_HZ,
       useMultiViews: true, enableAppliancePlugin: true,
       slideAppOptions: { enableScale: true, enableGlobalClick: false,
         syncEventQueuePolicy: 'latest-pending-render' } };
     if (room.apiHosts) this.sdkOptions.apiHosts = [...room.apiHosts];
+    if (preload) {
+      this.sdkOptions.enablePreLoadAppliancePlugin = true;
+      this.sdkOptions.preloadBuiltinApps = ['Slide', 'Presentation'];
+    }
     if (emptyApps) this.sdkOptions.preloadBuiltinApps = [];
     if (shared && this.sdkOptions.slideAppOptions) this.sdkOptions.slideAppOptions.enableSharedMediaVolume = true;
-    this.configuration = { apps: emptyApps ? [] : 'omitted: Slide/Presentation',
-      sharedMediaVolume: shared, modelOptionOmitted: true, appliance: 'constructor' };
+    this.configuration = { apps: emptyApps ? [] : preload ? ['Slide', 'Presentation'] : 'omitted: off',
+      sharedMediaVolume: shared, modelOptionOmitted: true, appliance: preload ? 'preload' : 'post-join' };
     this.mounted = true;
   }
   private async initialize(): Promise<ReleaseStatus> {

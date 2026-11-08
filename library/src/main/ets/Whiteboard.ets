@@ -123,7 +123,7 @@ export struct Whiteboard {
           if (this.autoJoin) {
             this.controller.joinRoom(this.options as WhiteboardOptions).catch((error: Error) => Logger.error('join room error', error))
           } else {
-            this.controller.prepareCompletion().catch((error: Error) => Logger.error('prepare error', error))
+            this.dsBridge.prepareInBackground(sdkOptions)
           }
         })
         .onPageVisible((event) => {
