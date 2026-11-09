@@ -3,6 +3,32 @@ import { fileIo as fs } from '@kit.CoreFileKit';
 import { Whiteboard, WhiteboardCallbacks, WhiteboardController, WhiteboardSdkOptions,
   WhiteboardRoomOptions, WindowParams, WindowAppParam, WindowDocsEvent,
   DispatchDocsEventResult, Region, Appliance, WhitePreloadResult, PreparationInfo, SlideErrorType, VERSION } from '@shengwang/whiteboard';
+import { DsBridge } from '@shengwang/whiteboard/src/main/ets/DsBridge';
+
+// Example-only gate: mount the actual Whiteboard and capture its normal attachment,
+// so optional network faults can be installed before the first SDK construction.
+// Normal release cases forward immediately. No library behavior is replaced.
+class ReleaseController extends WhiteboardController {
+  deferred: boolean = false;
+  private pending?: DsBridge;
+  private readonly forwardAttach: (bridge: DsBridge) => boolean;
+  constructor() {
+    super();
+    this.forwardAttach = this.attachWhiteboard;
+    this.attachWhiteboard = (bridge: DsBridge): boolean => {
+      if (!this.deferred) return this.forwardAttach(bridge);
+      this.pending = bridge;
+      return false;
+    };
+  }
+  resumeAttachment(): void {
+    if (!this.deferred) return;
+    if (!this.pending) throw new Error('WebNotAttached');
+    this.deferred = false;
+    this.forwardAttach(this.pending);
+    this.pending = undefined;
+  }
+}
 
 interface PrivateRoom {
   appIdentifier: string;
@@ -59,7 +85,7 @@ class ReleaseSlideOptions {
 @Entry
 @Component
 struct ReleaseE2E {
-  private controller: WhiteboardController = new WhiteboardController();
+  private controller: ReleaseController = new ReleaseController();
   private callbacks: WhiteboardCallbacks = new WhiteboardCallbacks();
   private sdkOptions: WhiteboardSdkOptions = { appIdentifier: '' };
   private room?: PrivateRoom;
@@ -74,8 +100,8 @@ struct ReleaseE2E {
   private disposed: boolean = false;
   private handled: Set<string> = new Set<string>();
   private configuration: ConfigurationObservation = {
-    apps: 'omitted: Slide/Presentation', sharedMediaVolume: false,
-    modelOptionOmitted: true, appliance: 'constructor'
+    apps: 'omitted: off', sharedMediaVolume: false,
+    modelOptionOmitted: true, appliance: 'post-join'
   };
   @State mounted: boolean = false;
   @StorageLink('ReleaseE2ECommand') @Watch('onCommand') command: string = '';
@@ -122,7 +148,7 @@ struct ReleaseE2E {
       preparation: this.controller.getPreparationInfo(), preload: this.preload, configuration: this.configuration,
       callbackEvents: this.callbackEvents };
   }
-  private initializeWithoutPreparation(): void {
+  private initializeWithoutPreparation(overrides?: WhiteboardSdkOptions): void {
     if (this.mounted) throw new Error('AlreadyInitialized');
     const context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
     let file: string = context.filesDir + '/release-e2e.private.json';
@@ -145,12 +171,15 @@ struct ReleaseE2E {
     }
     if (emptyApps) this.sdkOptions.preloadBuiltinApps = [];
     if (shared && this.sdkOptions.slideAppOptions) this.sdkOptions.slideAppOptions.enableSharedMediaVolume = true;
+    if (overrides) this.sdkOptions = { ...this.sdkOptions, ...overrides, appIdentifier: room.appIdentifier };
+    this.controller.deferred = AppStorage.get<boolean>('ReleaseE2EDeferred') ?? false;
     this.configuration = { apps: emptyApps ? [] : preload ? ['Slide', 'Presentation'] : 'omitted: off',
       sharedMediaVolume: shared, modelOptionOmitted: true, appliance: preload ? 'preload' : 'post-join' };
     this.mounted = true;
   }
-  private async initialize(): Promise<ReleaseStatus> {
-    this.initializeWithoutPreparation();
+  private async initialize(overrides?: WhiteboardSdkOptions): Promise<ReleaseStatus> {
+    this.initializeWithoutPreparation(overrides);
+    if (this.controller.deferred) return this.status();
     this.explicitPrepareCalls++;
     await this.controller.prepareCompletion(60000);
     if (this.disposed) throw new Error('HostInvalid');
@@ -181,7 +210,8 @@ struct ReleaseE2E {
     return Promise.all(pending);
   }
   private async execute(command: ReleaseCommand): Promise<string> {
-    if (command.action === 'initialize') return JSON.stringify(await this.initialize());
+    if (command.action === 'initialize') return JSON.stringify(await this.initialize(
+      command.payload ? JSON.parse(command.payload) as WhiteboardSdkOptions : undefined));
     if (command.action === 'initializeAndJoinWithoutPrepare') {
       // Mount and dispatch join in this call stack, before any explicit readiness wait.
       this.initializeWithoutPreparation();
@@ -191,9 +221,15 @@ struct ReleaseE2E {
     }
     if (command.action === 'status') return JSON.stringify(this.status());
     if (command.action === 'prepare') {
+      this.controller.resumeAttachment();
       this.explicitPrepareCalls++;
       await this.controller.prepareCompletion(60000);
+      this.prepared = true;
       return JSON.stringify(this.controller.getPreparationInfo());
+    }
+    if (command.action === 'enableUndo') {
+      this.controller.disableSerialization(false);
+      return JSON.stringify({ enabled: true });
     }
     if (command.action === 'join') return JSON.stringify(await this.join(command.uid ?? ''));
     if (command.action === 'leave') {

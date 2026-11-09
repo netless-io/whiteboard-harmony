@@ -8,7 +8,7 @@ interface BenchmarkRoom {
   appIdentifier: string;
   uuid: string;
   roomToken: string;
-  apiHosts: string[];
+  apiHosts?: string[];
 }
 interface BenchmarkRoute { mode?: string; }
 interface BenchmarkEvent {
@@ -65,15 +65,15 @@ struct LaunchPreloadBenchmark {
       let configPath: string = context.filesDir + '/launch-preload.private.json';
       if (!fs.accessSync(configPath)) configPath = '/data/storage/el2/base/files/launch-preload.private.json';
       this.credentials = JSON.parse(fs.readTextSync(configPath)) as BenchmarkRoom;
-      if (!this.credentials.appIdentifier || !this.credentials.uuid || !this.credentials.roomToken ||
-        JSON.stringify(this.credentials.apiHosts) !== '["api.netless.group"]') throw new Error('Invalid local dev benchmark configuration');
+      if (!this.credentials.appIdentifier || !this.credentials.uuid || !this.credentials.roomToken) throw new Error('Invalid local room configuration');
       this.sdkOptions = {
-        appIdentifier: this.credentials.appIdentifier, apiHosts: [...this.credentials.apiHosts],
+        appIdentifier: this.credentials.appIdentifier,
         region: Region.CN_HZ, useMultiViews: true, userCursor: false, enableAppliancePlugin: true,
         slideAppOptions: { enableScale: true, enableGlobalClick: false, enableSharedMediaVolume: false,
           forceCanvas: false, debug: false, showRenderError: false,
           invisibleBehavior: SlideInvisibleBehavior.Frozen, syncEventQueuePolicy: 'latest-pending-render' }
       };
+      if (this.credentials.apiHosts) this.sdkOptions.apiHosts = [...this.credentials.apiHosts];
       if (this.mode === 'preload') {
         // Model preloading remains off until explicitly selected against a ready backend.
         this.sdkOptions.enablePreLoadAppliancePlugin = true;
@@ -115,7 +115,7 @@ struct LaunchPreloadBenchmark {
       (this.mode === 'preload' && !this.prepared)) return;
     this.record('CLICK');
     this.joining = true;
-    this.status = '正在加入 dev 房间…';
+    this.status = '正在加入测试房间…';
     if (this.mode === 'direct') {
       this.record('SDK_CONSTRUCT_BEGIN');
       this.mounted = true;
@@ -137,7 +137,7 @@ struct LaunchPreloadBenchmark {
       await this.controller.joinRoom(room);
       if (this.disposed) return;
       this.joined = true;
-      this.status = '已加入 dev 测试房间';
+      this.status = '已加入测试房间';
     } catch (error) {
       this.record('ERROR', (error as Error).message);
       this.status = '加入房间失败';
@@ -167,7 +167,7 @@ struct LaunchPreloadBenchmark {
           .width('100%').height('100%').opacity(this.joined ? 1 : 0.01)
       }
       Column({ space: 16 }) {
-        Text('Harmony dev 预加载对比').fontSize(24)
+        Text('Harmony 普通与预加载入房').fontSize(24)
         Text(this.status).fontSize(18)
         Button(this.mode === 'preload' ? '预加载进入测试房间' : '普通进入测试房间')
           .id('launch-benchmark-join')
