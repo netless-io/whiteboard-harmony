@@ -36,6 +36,7 @@ export function buildSdkOptions(options: WhiteboardSdkOptions): SdkOptions {
     userCursor: options.userCursor,
     disableNewPencilStroke: false,
     enableAppliancePlugin: options.enableAppliancePlugin,
+    enablePreLoadAppliancePlugin: options.enablePreLoadAppliancePlugin,
     appliancePluginOptions: options.appliancePluginOptions,
     presentationAppOptions: options.presentationAppOptions,
     slideAppOptions: slideAppOptions,

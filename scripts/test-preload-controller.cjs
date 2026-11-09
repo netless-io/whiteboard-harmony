@@ -27,7 +27,7 @@ vm.runInNewContext(ownerTests.slice(0,ownerTests.indexOf('const params='))+'\nmo
  {module:ownerModule,exports:ownerModule.exports,require,__dirname,process,console});
 function realPreparation({attached=true,setup=false}={}){
  const e=ownerModule.exports(),b=e.host({setup}),c=new WhiteboardController();
- c.configureSdk({appIdentifier:'app'},()=>{});if(attached)c.attachWhiteboard(b);
+ c.configureSdk({appIdentifier:'app',preloadBuiltinApps:['Slide']},()=>{});if(attached)c.attachWhiteboard(b);
  return {e,b,c};
 }
 test('prepare waits for actual attachment and uses captured SDK config',async()=>{

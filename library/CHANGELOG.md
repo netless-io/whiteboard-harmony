@@ -1,5 +1,12 @@
 # 版本更新记录
 
+## [0.2.13] - 2026-11-09
+
+- 内嵌正式 Bridge 0a3fd1f：white-web-sdk 2.16.63、appliance-plugin 1.1.49、window-manager 1.0.29、app-slide 0.2.109。
+- 普通模式隔离可选预加载：App 列表省略/[] 均关闭；新增 enablePreLoadAppliancePlugin 默认 false，与 enableAppliancePlugin 同时开启才提前准备教具探针及所需 Worker。
+- 保留显式模型、动态配置、App 类和教具准备能力；构造阶段无隐式 15 秒截止时间，入房复用准备任务并按既有超时/失败规则回退。
+- Demo 对齐 Android/iOS：普通点击后挂载立即入房，预加载候课复用同一 Web/Controller，区分基础 prepareCompletion 与单次可选 onPreloadStateChange。
+
 ## [0.2.12] - 2026-11-06
 
 - 升级内嵌正式 Bridge 至 c577b39：white-web-sdk 2.16.62、window-manager 1.0.28、appliance-plugin 1.1.48、app-slide 0.2.109；同步正式 Worker 资源。

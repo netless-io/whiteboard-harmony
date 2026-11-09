@@ -174,7 +174,7 @@ export interface WhiteboardSdkOptions {
   apiHosts?: string[];
   /** 提前查询并下载房间模型，默认 false；仅对已完成服务端准备的项目和区域显式开启。 */
   enableModelPreload?: boolean;
-  /** SDK 构造时后台准备 App 类。省略默认 Slide / Presentation；[] 关闭。
+  /** SDK 构造时后台准备 App 类。省略或 [] 关闭；只有显式非空列表开启。
    * 不创建实例或加载课件内容，独立于 enableModelPreload。
    */
   preloadBuiltinApps?: BuiltinAppPreloadKind[];
@@ -183,10 +183,12 @@ export interface WhiteboardSdkOptions {
   dynamicConfig?: DynamicConfigOptions;
   userCursor?: boolean;
   useMultiViews?: boolean;
-  /** SDK 初始化时启用教具渲染准备，独立于 enableModelPreload，无需传 appliancePluginOptions。
-   * 未被配置覆盖时 useWorker 默认 "auto"，按能力、缓存和页面可见性决定是否执行探针。
-   */
+  /** 启用教具功能，默认在入房后初始化，不触发预加载。 */
   enableAppliancePlugin?: boolean;
+  /** 显式提前准备教具探针及所需 Worker，默认 false；还需 enableAppliancePlugin 为 true。
+   * mainThread 不准备 Worker；useSimple 省略/true 仅 Full，false 为 Full + Sub。
+   */
+  enablePreLoadAppliancePlugin?: boolean;
   /** 可选的 SDK 级教具配置；省略时使用插件默认值和动态配置，Room 可按字段覆盖。 */
   appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
@@ -239,6 +241,10 @@ export interface SdkOptions {
   userCursor?: boolean;
   disableNewPencilStroke: boolean;
   enableAppliancePlugin?: boolean;
+  /** 显式提前准备教具探针及所需 Worker，默认 false；还需 enableAppliancePlugin 为 true。
+   * mainThread 不准备 Worker；useSimple 省略/true 仅 Full，false 为 Full + Sub。
+   */
+  enablePreLoadAppliancePlugin?: boolean;
   appliancePluginOptions?: AppliancePluginOptions;
   presentationAppOptions?: PresentationAppOptions;
   slideAppOptions?: SlideAppOptions;

@@ -5,6 +5,8 @@ import { window } from '@kit.ArkUI';
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorage.setOrCreate<boolean>('ReleaseE2EEnabled', want.parameters?.['releaseE2E'] === 'true');
+    AppStorage.setOrCreate<boolean>('ReleaseE2EDeferred', want.parameters?.['releaseDeferred'] === 'true');
+    AppStorage.setOrCreate<boolean>('ReleaseE2EPreload', want.parameters?.['releasePreload'] === 'true');
     AppStorage.setOrCreate<boolean>('ReleaseE2EEmptyApps', want.parameters?.['releaseEmptyApps'] === 'true');
     AppStorage.setOrCreate<boolean>('ReleaseE2ESharedVolume', want.parameters?.['releaseSharedVolume'] === 'true');
     AppStorage.setOrCreate<string>('ReleaseE2ECommand', '');
