@@ -171,7 +171,15 @@ struct ReleaseE2E {
     }
     if (emptyApps) this.sdkOptions.preloadBuiltinApps = [];
     if (shared && this.sdkOptions.slideAppOptions) this.sdkOptions.slideAppOptions.enableSharedMediaVolume = true;
-    if (overrides) this.sdkOptions = { ...this.sdkOptions, ...overrides, appIdentifier: room.appIdentifier };
+    if (overrides) {
+      if (overrides.enableModelPreload !== undefined) this.sdkOptions.enableModelPreload = overrides.enableModelPreload;
+      if (overrides.enableAppliancePlugin !== undefined) this.sdkOptions.enableAppliancePlugin = overrides.enableAppliancePlugin;
+      if (overrides.enablePreLoadAppliancePlugin !== undefined) this.sdkOptions.enablePreLoadAppliancePlugin = overrides.enablePreLoadAppliancePlugin;
+      if (overrides.useMultiViews !== undefined) this.sdkOptions.useMultiViews = overrides.useMultiViews;
+      if (overrides.preloadBuiltinApps !== undefined) this.sdkOptions.preloadBuiltinApps = overrides.preloadBuiltinApps;
+      if (overrides.dynamicConfig !== undefined) this.sdkOptions.dynamicConfig = overrides.dynamicConfig;
+      if (overrides.appliancePluginOptions !== undefined) this.sdkOptions.appliancePluginOptions = overrides.appliancePluginOptions;
+    }
     this.controller.deferred = AppStorage.get<boolean>('ReleaseE2EDeferred') ?? false;
     this.configuration = { apps: emptyApps ? [] : preload ? ['Slide', 'Presentation'] : 'omitted: off',
       sharedMediaVolume: shared, modelOptionOmitted: true, appliance: preload ? 'preload' : 'post-join' };
