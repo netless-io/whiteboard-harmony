@@ -72,6 +72,7 @@ interface ReleaseStatus {
   callbackEvents: CallbackObservation[];
 }
 interface CommandReply { id: string; action: string; ok: boolean; json: string; error: string; }
+interface JoinAcknowledgement { joined: boolean; }
 class SlideAttributes {
   taskId: string = '9340e8e067bc11ec8f582b1b98453394';
   url: string = 'https://convertcdn.netless.link/dynamicConvert';
@@ -194,7 +195,7 @@ struct ReleaseE2E {
     this.prepared = true;
     return this.status();
   }
-  private async join(uid: string): Promise<object> {
+  private async join(uid: string): Promise<JoinAcknowledgement> {
     if (!this.room || !this.mounted || !uid) throw new Error('NotInitializedOrMissingUid');
     const params: WindowParams = new WindowParams();
     params.forceMaximized = true;
@@ -204,10 +205,12 @@ struct ReleaseE2E {
     const room: WhiteboardRoomOptions = { roomUuid: this.room.uuid, roomToken: this.room.roomToken,
       uid, region: Region.CN_HZ, writable: true, disableCameraTransform: false,
       undoCacheScenesCount: 32, timeout: 45000, windowParams: params };
-    const result: object = await this.controller.joinRoom(room);
+    await this.controller.joinRoom(room);
     this.joined = true;
     this.prepared = this.controller.getPreparationInfo()?.ready ?? false;
-    return result;
+    // Hilog has a per-line limit. Room state may contain many historical scenes;
+    // only acknowledge the actual resolved join, never print the full state.
+    return { joined: this.joined };
   }
   private async sequence(events: WindowDocsEvent[]): Promise<DispatchDocsEventResult[]> {
     const pending: Promise<DispatchDocsEventResult>[] = [];
