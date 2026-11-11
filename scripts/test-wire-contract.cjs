@@ -88,7 +88,7 @@ function environment({ closeError, holdJoin = false } = {}) {
     joinRoom(options, cb) {
       received.push({ method: 'joinRoom', args: plain([options]) });
       const task = life.lifecycle.begin('room', life.currentScope(), cb);
-      task.object = { phase: 'connected', disconnect: async () => { closeCount++; if (closeError) throw new Error(closeError); } };
+      task.object = { phase: 'connected', disconnect: async () => { closeCount++; if (closeError) throw new Error(closeError); task.object.phase = 'disconnected'; } };
       const complete = () => { task.settle(); life.lifecycle.activate(task, holdJoin ? JSON.stringify({ isWritable: true, observerId: 1, state: {} }) : '{}'); };
       if (holdJoin) joinReplies.push(complete); else complete();
       life.inScope(task.scope, () => scoped.registerAsyn('room', Object.fromEntries(['disconnect', 'dispatchDocsEvent', 'getPageState', 'addApp'].map(name => [name, handler(sources.Room, name)]))));

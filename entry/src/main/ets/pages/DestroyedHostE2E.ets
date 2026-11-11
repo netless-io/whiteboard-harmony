@@ -4,8 +4,8 @@ import { Whiteboard, WhiteboardCallbacks, WhiteboardController, WhiteboardSdkOpt
   WhiteboardRoomOptions, WindowParams, Region, WhitePreloadResult } from '@shengwang/whiteboard';
 
 interface PrivateRoom { appIdentifier: string; uuid: string; roomToken: string; otherUuid: string; otherRoomToken: string; apiHosts?: string[]; }
-interface MatrixCommand { id: string; action: string; slot: string; uid?: string; otherRoom?: boolean; preload?: boolean; }
-interface Reply { id: string; action: string; slot: string; ok: boolean; error: string; at: number; preloadCount: number; preloadState: string; businessReferenceReleased: boolean; controllerRetained: boolean; }
+interface MatrixCommand { id: string; action: string; slot: string; uid?: string; otherRoom?: boolean; preload?: boolean; multiViews?: boolean; apiMethod?: string; writable?: boolean; }
+interface Reply { id: string; action: string; slot: string; ok: boolean; error: string; at: number; preloadCount: number; preloadState: string; businessReferenceReleased: boolean; controllerRetained: boolean; apiValue: string; }
 
 /** Demo-only ordinary public join/exit automation. Default bundled Bridge, no preload. */
 @Entry
@@ -19,6 +19,7 @@ struct DestroyedHostE2E {
   private callbacksC: WhiteboardCallbacks = new WhiteboardCallbacks();
   private options: WhiteboardSdkOptions = { appIdentifier: '' };
   private room?: PrivateRoom;
+  private apiValues: Map<string, string> = new Map<string, string>();
   private handled: Set<string> = new Set<string>();
   private preloadResults: Map<string, WhitePreloadResult> = new Map<string, WhitePreloadResult>();
   private preloadCounts: Map<string, number> = new Map<string, number>();
@@ -49,7 +50,7 @@ struct DestroyedHostE2E {
     const slot: string = command.slot;
     if (command.action === 'mount') {
       this.loadRoom();
-      this.options = { appIdentifier: this.room!.appIdentifier, region: Region.CN_HZ, useMultiViews: true,
+      this.options = { appIdentifier: this.room!.appIdentifier, region: Region.CN_HZ, useMultiViews: command.multiViews !== false,
         apiHosts: this.room!.apiHosts, enableModelPreload: command.preload === true,
         preloadBuiltinApps: command.preload ? ['Slide', 'Presentation'] : undefined };
       this.releasedControllers.delete(slot);
@@ -101,8 +102,43 @@ struct DestroyedHostE2E {
       if (!this.room || !command.uid) throw new Error('MissingRoomOrUid');
       const params: WhiteboardRoomOptions = { roomUuid: command.otherRoom ? this.room.otherUuid : this.room.uuid,
         roomToken: command.otherRoom ? this.room.otherRoomToken : this.room.roomToken,
-        uid: command.uid, region: Region.CN_HZ, writable: false, timeout: 45000, windowParams: new WindowParams() };
+        uid: command.uid, region: Region.CN_HZ, writable: command.writable === true, timeout: 45000, windowParams: new WindowParams() };
       await controller.joinRoom(params);
+      return;
+    }
+    if (command.action === 'apiInvoke') {
+      let value: ESObject;
+      if (command.apiMethod === 'nextPage') value = await controller.nextPage();
+      else if (command.apiMethod === 'prevPage') value = await controller.prevPage();
+      else if (command.apiMethod === 'closeApp') value = await controller.closeApp('contract-missing-app');
+      else if (command.apiMethod === 'queryApp') value = await controller.queryApp('contract-missing-app');
+      else if (command.apiMethod === 'queryAllApps') value = await controller.queryAllApps();
+      else if (command.apiMethod === 'insertText') value = await controller.insertText(0, 0, 'contract-test');
+      else if (command.apiMethod === 'getRoomPhase') value = await controller.getRoomPhase();
+      else if (command.apiMethod === 'setScenePath') value = await controller.setScenePath('/init');
+      else if (command.apiMethod === 'setSceneIndex') value = await controller.setSceneIndex(0);
+      else throw new Error('InvalidApiMethod');
+      this.apiValues.set(command.id, JSON.stringify(value));
+      return;
+    }
+    if (command.action === 'apiContract') {
+      const state = await controller.getRoomState();
+      if (!state.pageState || !Number.isFinite(state.pageState.index) || !Number.isFinite(state.pageState.length)) {
+        throw new Error('InvalidPageState');
+      }
+      const scenes = await controller.getEntireScenes();
+      if (Array.isArray(scenes) || typeof scenes !== 'object' || scenes === null) throw new Error('InvalidScenes');
+      if (command.multiViews !== false) {
+        const apps = await controller.queryAllApps();
+        if (Array.isArray(apps) || typeof apps !== 'object' || apps === null) throw new Error('InvalidApps');
+      } else {
+        let rejected: boolean = false;
+        try { await controller.queryAllApps(); } catch (error) { rejected = (error as Error).message.includes('window manager not existed'); }
+        if (!rejected) throw new Error('MissingManagerDidNotReject');
+      }
+      const next: boolean = await controller.nextPage();
+      const prev: boolean = await controller.prevPage();
+      if (typeof next !== 'boolean' || typeof prev !== 'boolean') throw new Error('InvalidPageResult');
       return;
     }
     if (command.action === 'leave') { await controller.leaveRoom(); return; }
@@ -117,7 +153,8 @@ struct DestroyedHostE2E {
       preloadState: this.preloadResults.get(command.slot)?.state ?? '',
       businessReferenceReleased: this.releasedControllers.has(command.slot) &&
         (command.slot === 'A' ? this.a === undefined : command.slot === 'B' ? this.b === undefined : this.c === undefined),
-      controllerRetained: this.releasedControllers.get(command.slot)?.deref() !== undefined };
+      controllerRetained: this.releasedControllers.get(command.slot)?.deref() !== undefined, apiValue: this.apiValues.get(command.id) ?? '' };
+    this.apiValues.delete(command.id);
     console.info('DESTROYED_HOST_E2E ' + JSON.stringify(result));
   }
   private onCommand(): void {
