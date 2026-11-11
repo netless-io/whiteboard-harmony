@@ -60,6 +60,7 @@ export struct Whiteboard {
 
   aboutToDisappear(): void {
     this.controller.detachWhiteboard(this.dsBridge)
+    this.dsBridge.destroy()
   }
 
   build() {
@@ -130,7 +131,7 @@ export struct Whiteboard {
           Logger.info('onPageVisible url:' + event.url);
         })
         .onRenderExited((event) => {
-          this.dsBridge.invalidate();
+          this.dsBridge.destroy();
           if (event) {
             Logger.info('onRenderExited reason:' + event.renderExitReason);
           }

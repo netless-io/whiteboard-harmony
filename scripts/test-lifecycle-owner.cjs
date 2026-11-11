@@ -4,10 +4,10 @@ const ts=require(require.resolve('typescript', {paths: [process.env.WHITEBOARD_B
 const source=path.join(__dirname,'../library/src/main/ets/DsBridge.ets');
 const code=ts.transpileModule(fs.readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 function environment(){
- const mod={exports:{}},timers=[];let now=0,sequence=0;
+ const mod={exports:{}},timers=[];let now=0,sequence=0,timerSequence=0;
  const epoch=new Date(2026,9,19,8,9,5).getTime();
  class ClockDate extends Date {constructor(){super(epoch+now);}}
- vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){},info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){timers.push({at:now+ms,fn});}});
+ vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){},info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){const id=++timerSequence;timers.push({id,at:now+ms,fn});return id;},clearTimeout(id){const index=timers.findIndex(t=>t.id===id);if(index>=0)timers.splice(index,1);}});
  const joins=[],setups=[];
  function host({handshake=true,setup=true}={}){
   const b=new mod.exports.DsBridge({runJavaScript(){}});let handshakeReply;
@@ -49,6 +49,23 @@ test('delayed handshake T0 uses the eventual dispatch second',async()=>{
 test('same captured identity across two hosts closes old before new join',async()=>{
  const e=environment(),a=e.host(),b=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
  b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);assert.equal(a.state,'idle');assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+});
+test('destroyed component permits same-identity reentry without explicit leave',async()=>{
+ const e=environment(),a=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ a.destroy();const b=e.host();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ assert.equal(a.leaves||0,0);assert.equal(b.state,'active');assert.equal(e.joins.length,2);b.destroy();
+ assert.equal(b.constructor.owners.size,0);assert.equal(b.constructor.replacements.size,0);
+});
+test('destroy during replacement releases its waiters and late old replies cannot remove new owner',async()=>{
+ const e=environment(),a=e.host(),b=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);a.holdLeave=true;
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);assert.equal(e.joins.length,1);
+ a.destroy();await e.advance(0);assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+ a.completeLeave();a.destroy();await e.advance(25000);assert.equal(b.constructor.owners.get(b.identity),b);b.destroy();
+});
+test('repeated component destruction removes all owner and replacement entries',async()=>{
+ const e=environment();let b;
+ for(let i=0;i<200;i++){b=e.host();b.initializeRoom({appIdentifier:'app'},{...params(),uuid:'room-'+i},()=>{});await e.advance(0);b.destroy();}
+ assert.equal(e.joins.length,200);assert.equal(b.constructor.owners.size,0);assert.equal(b.constructor.replacements.size,0);
 });
 test('owner switching identity during local leave is not closed by stale replacement',async()=>{
  const e=environment(),a=e.host(),b=e.host(),p=uid=>({...params(),uid});

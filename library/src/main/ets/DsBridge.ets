@@ -39,6 +39,9 @@ export class DsBridge {
   private state: string = 'idle';
   private initialized: boolean = false;
   private invalid: boolean = false;
+  private destroyed: boolean = false;
+  private joinDeadline?: number;
+  private leaveDeadline?: number;
   private pending?: Callback<object>;
   private ready: (() => void)[] = [];
   private closeCallbacks?: Callback<object>[];
@@ -423,7 +426,7 @@ export class DsBridge {
     this.closeResult = undefined; this.closeCallbacks = undefined;
     this.pending = ready;
     const generation: number = this.scope.generation;
-    setTimeout(() => {
+    this.joinDeadline = setTimeout(() => {
       if (this.scope.generation !== generation || !this.pending || this.state !== 'joining') return;
       this.state = 'closing'; const pending = this.pending; this.pending = undefined;
       pending(this.error('JoinTimeout'));
@@ -432,11 +435,12 @@ export class DsBridge {
     }, (roomOptions as RoomOptions).timeout ?? 45000);
     this.prepareConfiguration(sdkOptions, (roomOptions as RoomOptions).timeout ?? 45000, (setupValue: object) => {
       if (this.invalid || generation !== this.scope.generation || !this.pending) return;
-      if (this.isError(setupValue)) { const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending(setupValue); return; }
+      if (this.isError(setupValue)) { this.cancelJoinDeadline(); const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending(setupValue); return; }
       this.addNativeTags(roomOptions as NativeJoinRoomOptions);
       this.logPreload('join_dispatch');
       this.send('sdk.joinRoom', [roomOptions], (value: object) => {
         if (this.invalid || generation !== this.scope.generation || !this.pending) return;
+        this.cancelJoinDeadline();
         const pending = this.pending; this.pending = undefined;
         if (!this.isError(value)) { this.state = 'active'; this.logPreload('room_ready'); }
         else if (this.state !== 'idle' && this.state !== 'closing') this.state = 'blocked';
@@ -481,19 +485,23 @@ export class DsBridge {
     });
   }
   private closeRoom(handler: Callback<object>): void {
+    if (this.destroyed) { handler('{}' as ESObject); return; }
     if (this.invalid) { handler(this.error('HostInvalid')); return; }
     if (this.closeResult !== undefined) { handler(this.closeResult); return; }
     if (this.closeCallbacks) { this.closeCallbacks.push(handler); return; }
     if (this.state === 'idle') { handler('{}' as ESObject); return; }
     this.state = 'closing'; this.closeCallbacks = [handler];
+    this.cancelJoinDeadline();
     const pending = this.pending; this.pending = undefined; pending?.(this.error('Cancelled'));
     if (pending) this.cancelPreparation();
     const generation: number = this.scope.generation;
-    setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
+    this.leaveDeadline = setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
     this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value));
   }
   private finishLeave(generation: number, value: object): void {
     if (generation !== this.scope.generation || this.closeResult !== undefined) return;
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
     this.closeResult = value;
     this.state = typeof value === 'string' && (value as string).includes('"__error"') ? 'blocked' : 'idle';
     if (this.state === 'idle' && this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
@@ -503,6 +511,9 @@ export class DsBridge {
   invalidate(): void {
     if (this.invalid) return;
     this.invalid = true; this.state = 'blocked'; this.ready = [];
+    this.cancelJoinDeadline();
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
     this.admissionEpoch++;
     this.finishPreparation(this.error('HostInvalid')); this.preparedKey = '';
     if (this.replacement) this.finishReplacement(this.replacement, this.error('HostInvalid'));
@@ -510,6 +521,21 @@ export class DsBridge {
     const callbacks = this.closeCallbacks; this.closeCallbacks = undefined;
     callbacks?.forEach((callback: Callback<object>) => callback(this.error('HostInvalid')));
     this.dsInitBridge.invalidate();
+  }
+  /** The SDK component/renderer is gone; no old JS reply is required. */
+  destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
+    this.identity = undefined;
+    const callbacks = this.closeCallbacks; this.closeCallbacks = undefined;
+    this.invalidate();
+    this.closeResult = '{}' as ESObject;
+    callbacks?.forEach((callback: Callback<object>) => callback(this.closeResult!));
+  }
+  private cancelJoinDeadline(): void {
+    if (this.joinDeadline !== undefined) clearTimeout(this.joinDeadline);
+    this.joinDeadline = undefined;
   }
   pageBegin(): boolean {
     if (this.scope.documentId.length === 0 || this.invalid) return false;
