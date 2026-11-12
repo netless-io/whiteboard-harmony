@@ -41,6 +41,7 @@ export struct Whiteboard {
   onCallbacksChanged(): void { this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange); }
 
   aboutToAppear(): void {
+    this.dsBridge.setDocumentRecovery(() => this.webController.loadUrl($rawfile('whiteboard/index.html')));
     try {
       webview.WebviewController.setWebDebuggingAccess(this.webDebug);
     } catch (error) {

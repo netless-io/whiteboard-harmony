@@ -3,11 +3,11 @@ const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('ass
 const ts=require(require.resolve('typescript', {paths: [process.env.WHITEBOARD_BRIDGE_ROOT || path.join(__dirname, '../../Whiteboard-bridge')]}));
 const source=path.join(__dirname,'../library/src/main/ets/DsBridge.ets');
 const code=ts.transpileModule(fs.readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
-function environment(){
+function environment(logError=()=>{}){
  const mod={exports:{}},timers=[];let now=0,sequence=0,timerSequence=0;
  const epoch=new Date(2026,9,19,8,9,5).getTime();
  class ClockDate extends Date {constructor(){super(epoch+now);}}
- vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){},info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){const id=++timerSequence;timers.push({id,at:now+ms,fn});return id;},clearTimeout(id){const index=timers.findIndex(t=>t.id===id);if(index>=0)timers.splice(index,1);}});
+ vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error:logError,info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){const id=++timerSequence;timers.push({id,at:now+ms,fn});return id;},clearTimeout(id){const index=timers.findIndex(t=>t.id===id);if(index>=0)timers.splice(index,1);}});
  const joins=[],setups=[];
  function host({handshake=true,setup=true}={}){
   const b=new mod.exports.DsBridge({runJavaScript(){}});let handshakeReply;
@@ -25,6 +25,33 @@ function environment(){
 }
 const params=()=>({uuid:'room',roomToken:'mock',uid:'uid',timeout:100,windowParams:{fullscreen:false}});
 const tests=[];const test=(name,fn)=>tests.push({name,fn});
+test('active and idle page changes recover on explicit join, with old replies fenced',async()=>{
+ for(const idle of [false,true]){
+  const e=environment(),b=e.host();let loads=0;b.setDocumentRecovery(()=>loads++);
+  b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+  if(idle){b.leaveRoom(()=>{});await e.advance(0);}else b.holdLeave=true;
+  b.pageBegin();assert.equal(b.invalid,true);
+  const late=b.completeLeave;b.holdLeave=false;
+  b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+  assert.equal(loads,1);assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+  late('{"__error":{"message":"late navigation close"}}');assert.equal(b.state,'active');b.destroy();
+ }
+});
+test('navigation during preparation cancels old join and allows the next one; destroy remains terminal',async()=>{
+ const e=environment(),b=e.host({setup:false}),old=[];b.initializeRoom({appIdentifier:'app'},params(),v=>old.push(v));await e.advance(0);
+ b.pageBegin();assert.match(old[0],/HostInvalid/);const late=b.completeSetup;
+ b.setDocumentRecovery(()=>{});b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ b.completeSetup();await e.advance(0);assert.equal(b.state,'active');late();assert.equal(b.state,'active');
+ b.pageBegin();b.destroy();b.initializeRoom({appIdentifier:'app'},params(),v=>assert.match(v,/HostInvalid/));await e.advance(0);assert.equal(e.joins.length,1);
+});
+test('navigation recovers even when both leave transport and host logger throw',async()=>{
+ const e=environment(()=>{throw Error('host logger failed');}),b=e.host();
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.throwLeave=true;
+ assert.doesNotThrow(()=>b.pageBegin());assert.equal(b.invalid,true);
+ b.throwLeave=false;b.setDocumentRecovery(()=>{});
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');b.destroy();
+});
 for(const crossHost of [false,true])test(`failed old leave permits ${crossHost?'cross-host':'same-host'} replacement and fences late responses`,async()=>{
  const e=environment(),a=e.host(),b=crossHost?e.host():a;
  a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
