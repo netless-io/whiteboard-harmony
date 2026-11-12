@@ -385,19 +385,26 @@ export class DsBridge {
       DsBridge.replacements.set(key, request); this.replacement = request;
       if (previous) previous.host.cancelReplacement(previous);
       if (local && local !== previous) this.cancelReplacement(local);
+      const localGeneration: number = this.scope.generation;
       this.closeRoom((value: object) => {
         if (!this.currentReplacement(request)) return;
-        if (this.isError(value)) { this.finishReplacement(request, value); return; }
+        if (this.isError(value)) this.continueAfterFailedLeave(localGeneration, value);
         const closed: Callback<object> = (result: object) => {
           if (!this.currentReplacement(request)) return;
-          if (this.isError(result)) { this.finishReplacement(request, result); return; }
           request.waiting = false; DsBridge.replacements.delete(key); this.replacement = undefined;
           DsBridge.owners.set(key, this); this.identity = key;
           this.beginRoom(sdkSnapshot, parameters, ready);
         };
         // The target owner may have switched identity while this host was closing.
         const old: DsBridge | undefined = DsBridge.owners.get(key);
-        if (old && old !== this) old.closeRoom(closed); else closed('{}' as ESObject);
+        if (old && old !== this) {
+          const oldGeneration: number = old.scope.generation;
+          old.closeRoom((result: object) => {
+            if (!this.currentReplacement(request)) return;
+            if (this.isError(result)) old.continueAfterFailedLeave(oldGeneration, result);
+            closed('{}' as ESObject);
+          });
+        } else closed('{}' as ESObject);
       });
     });
     return true;
@@ -496,7 +503,23 @@ export class DsBridge {
     if (pending) this.cancelPreparation();
     const generation: number = this.scope.generation;
     this.leaveDeadline = setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
-    this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value));
+    try { this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value)); }
+    catch (error) { this.finishLeave(generation, this.error('LeaveFailed')); }
+  }
+  private continueAfterFailedLeave(generation: number, result: object): void {
+    if (generation !== this.scope.generation) return;
+    let message: string = 'LeaveFailed';
+    try { if (typeof result === 'string') message = (JSON.parse(result) as LifecycleErrorResult).__error.message; } catch (_) {}
+    try { Logger.error('Previous room leave failed; continuing replacement: ' + message); } catch (_) {}
+    try { this.send('sdk.continueAfterLeaveFailure', [message]); } catch (_) {}
+    if (this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
+    this.identity = undefined;
+    this.cancelJoinDeadline();
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
+    this.scope.generation++;
+    this.closeResult = undefined;
+    this.state = this.invalid ? 'blocked' : 'idle';
   }
   private finishLeave(generation: number, value: object): void {
     if (generation !== this.scope.generation || this.closeResult !== undefined) return;

@@ -86,6 +86,7 @@ struct DestroyedHostE2E {
       return;
     }
     const controller: WhiteboardController = this.controller(slot);
+    if (command.action === 'prepareSdk') { await controller.prepareCompletion(45000); return; }
     if (command.action === 'prepare') {
       await controller.prepareCompletion(45000);
       const deadline: number = Date.now() + 55000;

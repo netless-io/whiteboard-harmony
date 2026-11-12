@@ -16,7 +16,8 @@ function environment(){
    else if(m==='sdk.newWhiteSdk'){setups.push(a.at(-1));b.completeSetup=(value='{}',scope=a[0].__whiteScope)=>cb({value,scope});if(setup)b.completeSetup();}
    else if(m==='sdk.observePreload'){b.observations=(b.observations||0)+1;b.completePreload=(value={state:'success',message:''},scope=a[0].__whiteScope)=>cb({value:JSON.stringify(value),scope});}
    else if(m==='sdk.joinRoom'){b.actualUid=a[1].uid;joins.push(JSON.parse(JSON.stringify(a[1])));cb({scope:{...b.scope},value:'{}'});}
-   else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;const scope={...b.scope};b.completeLeave=()=>cb({scope,value:'{}'});if(!b.holdLeave)b.completeLeave();}
+   else if(m==='sdk.continueAfterLeaveFailure'){b.recoveries=(b.recoveries||0)+1;b.recoveredGeneration=a[0].__whiteScope.generation;}
+   else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;if(b.throwLeave)throw Error('synthetic transport failure');const scope={...b.scope};b.completeLeave=(value=b.leaveError||'{}')=>cb({scope,value});if(!b.holdLeave)b.completeLeave();}
   };b.completeHandshake=()=>handshakeReply();return b;
  }
  async function advance(ms){now+=ms;for(let n=0;n<10;n++){const due=timers.filter(t=>t.at<=now);for(const t of due){timers.splice(timers.indexOf(t),1);t.fn();}await Promise.resolve();if(!due.length)break;}}
@@ -24,6 +25,25 @@ function environment(){
 }
 const params=()=>({uuid:'room',roomToken:'mock',uid:'uid',timeout:100,windowParams:{fullscreen:false}});
 const tests=[];const test=(name,fn)=>tests.push({name,fn});
+for(const crossHost of [false,true])test(`failed old leave permits ${crossHost?'cross-host':'same-host'} replacement and fences late responses`,async()=>{
+ const e=environment(),a=e.host(),b=crossHost?e.host():a;
+ a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ const generation=a.scope.generation;a.leaveError='{"__error":{"message":"synthetic leave failure"}}';
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');assert.equal(a.recoveries,1);assert.equal(a.recoveredGeneration,generation);
+ a.completeLeave('{"__error":{"message":"late failure"}}');assert.equal(b.state,'active');assert.equal(b.constructor.owners.get(b.identity),b);b.destroy();a.destroy();
+});
+for(const timeout of [false,true])test(`explicit ${timeout?'timeout':'failure'} remains observable; next join recovers cached result`,async()=>{
+ const e=environment(),b=e.host(),replies=[];b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ b.holdLeave=timeout;b.leaveError='{"__error":{"message":"synthetic leave failure"}}';b.leaveRoom(v=>replies.push(v));await e.advance(0);
+ if(timeout)await e.advance(20001);assert.equal(replies.length,1);assert.match(replies[0],timeout?/LeaveTimeout/:/synthetic leave failure/);
+ b.holdLeave=false;b.initializeRoom({appIdentifier:'app'},{...params(),uuid:'another-room',uid:'another-uid'},v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');assert.equal(b.recoveries,1);assert.equal(b.constructor.owners.size,1);b.destroy();
+});
+test('synchronous leave transport exception cannot block replacement',async()=>{
+ const e=environment(),b=e.host();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.throwLeave=true;
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);assert.equal(e.joins.length,2);assert.equal(b.state,'active');b.destroy();
+});
 test('snapshots SDK, identity and nested Room payload before queue',async()=>{
  const e=environment(),b=e.host();const sdk={appIdentifier:'app',nested:{enabled:true}},p=params();
  b.initializeRoom(sdk,p,()=>{});sdk.appIdentifier='mutated';sdk.nested.enabled=false;p.uuid='mutated';p.uid='mutated';p.windowParams.fullscreen=true;
