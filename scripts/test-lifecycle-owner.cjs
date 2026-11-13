@@ -3,11 +3,11 @@ const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('ass
 const ts=require(require.resolve('typescript', {paths: [process.env.WHITEBOARD_BRIDGE_ROOT || path.join(__dirname, '../../Whiteboard-bridge')]}));
 const source=path.join(__dirname,'../library/src/main/ets/DsBridge.ets');
 const code=ts.transpileModule(fs.readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
-function environment(){
- const mod={exports:{}},timers=[];let now=0,sequence=0;
+function environment(logError=()=>{}){
+ const mod={exports:{}},timers=[];let now=0,sequence=0,timerSequence=0;
  const epoch=new Date(2026,9,19,8,9,5).getTime();
  class ClockDate extends Date {constructor(){super(epoch+now);}}
- vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error(){},info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){timers.push({at:now+ms,fn});}});
+ vm.runInNewContext(code,{module:mod,exports:mod.exports,require(name){return name==='@kit.ArkTS'?{util:{generateRandomUUID:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`}}:{Logger:{error:logError,info(){}}}},console,JSON,Promise,Date:ClockDate,setTimeout(fn,ms){const id=++timerSequence;timers.push({id,at:now+ms,fn});return id;},clearTimeout(id){const index=timers.findIndex(t=>t.id===id);if(index>=0)timers.splice(index,1);}});
  const joins=[],setups=[];
  function host({handshake=true,setup=true}={}){
   const b=new mod.exports.DsBridge({runJavaScript(){}});let handshakeReply;
@@ -16,7 +16,8 @@ function environment(){
    else if(m==='sdk.newWhiteSdk'){setups.push(a.at(-1));b.completeSetup=(value='{}',scope=a[0].__whiteScope)=>cb({value,scope});if(setup)b.completeSetup();}
    else if(m==='sdk.observePreload'){b.observations=(b.observations||0)+1;b.completePreload=(value={state:'success',message:''},scope=a[0].__whiteScope)=>cb({value:JSON.stringify(value),scope});}
    else if(m==='sdk.joinRoom'){b.actualUid=a[1].uid;joins.push(JSON.parse(JSON.stringify(a[1])));cb({scope:{...b.scope},value:'{}'});}
-   else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;const scope={...b.scope};b.completeLeave=()=>cb({scope,value:'{}'});if(!b.holdLeave)b.completeLeave();}
+   else if(m==='sdk.continueAfterLeaveFailure'){b.recoveries=(b.recoveries||0)+1;b.recoveredGeneration=a[0].__whiteScope.generation;}
+   else if(m==='sdk.leaveRoom'){b.leaves=(b.leaves||0)+1;if(b.throwLeave)throw Error('synthetic transport failure');const scope={...b.scope};b.completeLeave=(value=b.leaveError||'{}')=>cb({scope,value});if(!b.holdLeave)b.completeLeave();}
   };b.completeHandshake=()=>handshakeReply();return b;
  }
  async function advance(ms){now+=ms;for(let n=0;n<10;n++){const due=timers.filter(t=>t.at<=now);for(const t of due){timers.splice(timers.indexOf(t),1);t.fn();}await Promise.resolve();if(!due.length)break;}}
@@ -24,6 +25,52 @@ function environment(){
 }
 const params=()=>({uuid:'room',roomToken:'mock',uid:'uid',timeout:100,windowParams:{fullscreen:false}});
 const tests=[];const test=(name,fn)=>tests.push({name,fn});
+test('active and idle page changes recover on explicit join, with old replies fenced',async()=>{
+ for(const idle of [false,true]){
+  const e=environment(),b=e.host();let loads=0;b.setDocumentRecovery(()=>loads++);
+  b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+  if(idle){b.leaveRoom(()=>{});await e.advance(0);}else b.holdLeave=true;
+  b.pageBegin();assert.equal(b.invalid,true);
+  const late=b.completeLeave;b.holdLeave=false;
+  b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+  assert.equal(loads,1);assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+  late('{"__error":{"message":"late navigation close"}}');assert.equal(b.state,'active');b.destroy();
+ }
+});
+test('navigation during preparation cancels old join and allows the next one; destroy remains terminal',async()=>{
+ const e=environment(),b=e.host({setup:false}),old=[];b.initializeRoom({appIdentifier:'app'},params(),v=>old.push(v));await e.advance(0);
+ b.pageBegin();assert.match(old[0],/HostInvalid/);const late=b.completeSetup;
+ b.setDocumentRecovery(()=>{});b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ b.completeSetup();await e.advance(0);assert.equal(b.state,'active');late();assert.equal(b.state,'active');
+ b.pageBegin();b.destroy();b.initializeRoom({appIdentifier:'app'},params(),v=>assert.match(v,/HostInvalid/));await e.advance(0);assert.equal(e.joins.length,1);
+});
+test('navigation recovers even when both leave transport and host logger throw',async()=>{
+ const e=environment(()=>{throw Error('host logger failed');}),b=e.host();
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.throwLeave=true;
+ assert.doesNotThrow(()=>b.pageBegin());assert.equal(b.invalid,true);
+ b.throwLeave=false;b.setDocumentRecovery(()=>{});
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');b.destroy();
+});
+for(const crossHost of [false,true])test(`failed old leave permits ${crossHost?'cross-host':'same-host'} replacement and fences late responses`,async()=>{
+ const e=environment(),a=e.host(),b=crossHost?e.host():a;
+ a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ const generation=a.scope.generation;a.leaveError='{"__error":{"message":"synthetic leave failure"}}';
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');assert.equal(a.recoveries,1);assert.equal(a.recoveredGeneration,generation);
+ a.completeLeave('{"__error":{"message":"late failure"}}');assert.equal(b.state,'active');assert.equal(b.constructor.owners.get(b.identity),b);b.destroy();a.destroy();
+});
+for(const timeout of [false,true])test(`explicit ${timeout?'timeout':'failure'} remains observable; next join recovers cached result`,async()=>{
+ const e=environment(),b=e.host(),replies=[];b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ b.holdLeave=timeout;b.leaveError='{"__error":{"message":"synthetic leave failure"}}';b.leaveRoom(v=>replies.push(v));await e.advance(0);
+ if(timeout)await e.advance(20001);assert.equal(replies.length,1);assert.match(replies[0],timeout?/LeaveTimeout/:/synthetic leave failure/);
+ b.holdLeave=false;b.initializeRoom({appIdentifier:'app'},{...params(),uuid:'another-room',uid:'another-uid'},v=>assert.equal(v,'{}'));await e.advance(0);
+ assert.equal(e.joins.length,2);assert.equal(b.state,'active');assert.equal(b.recoveries,1);assert.equal(b.constructor.owners.size,1);b.destroy();
+});
+test('synchronous leave transport exception cannot block replacement',async()=>{
+ const e=environment(),b=e.host();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);b.throwLeave=true;
+ b.initializeRoom({appIdentifier:'app'},params(),v=>assert.equal(v,'{}'));await e.advance(0);assert.equal(e.joins.length,2);assert.equal(b.state,'active');b.destroy();
+});
 test('snapshots SDK, identity and nested Room payload before queue',async()=>{
  const e=environment(),b=e.host();const sdk={appIdentifier:'app',nested:{enabled:true}},p=params();
  b.initializeRoom(sdk,p,()=>{});sdk.appIdentifier='mutated';sdk.nested.enabled=false;p.uuid='mutated';p.uid='mutated';p.windowParams.fullscreen=true;
@@ -49,6 +96,23 @@ test('delayed handshake T0 uses the eventual dispatch second',async()=>{
 test('same captured identity across two hosts closes old before new join',async()=>{
  const e=environment(),a=e.host(),b=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
  b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);assert.equal(a.state,'idle');assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+});
+test('destroyed component permits same-identity reentry without explicit leave',async()=>{
+ const e=environment(),a=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ a.destroy();const b=e.host();b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);
+ assert.equal(a.leaves||0,0);assert.equal(b.state,'active');assert.equal(e.joins.length,2);b.destroy();
+ assert.equal(b.constructor.owners.size,0);assert.equal(b.constructor.replacements.size,0);
+});
+test('destroy during replacement releases its waiters and late old replies cannot remove new owner',async()=>{
+ const e=environment(),a=e.host(),b=e.host();a.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);a.holdLeave=true;
+ b.initializeRoom({appIdentifier:'app'},params(),()=>{});await e.advance(0);assert.equal(e.joins.length,1);
+ a.destroy();await e.advance(0);assert.equal(b.state,'active');assert.equal(e.joins.length,2);
+ a.completeLeave();a.destroy();await e.advance(25000);assert.equal(b.constructor.owners.get(b.identity),b);b.destroy();
+});
+test('repeated component destruction removes all owner and replacement entries',async()=>{
+ const e=environment();let b;
+ for(let i=0;i<200;i++){b=e.host();b.initializeRoom({appIdentifier:'app'},{...params(),uuid:'room-'+i},()=>{});await e.advance(0);b.destroy();}
+ assert.equal(e.joins.length,200);assert.equal(b.constructor.owners.size,0);assert.equal(b.constructor.replacements.size,0);
 });
 test('owner switching identity during local leave is not closed by stale replacement',async()=>{
  const e=environment(),a=e.host(),b=e.host(),p=uid=>({...params(),uid});

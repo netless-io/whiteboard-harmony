@@ -26,8 +26,8 @@ function declaration(source, name) {
   const ast = ts.createSourceFile('bridge.ts', source, ts.ScriptTarget.Latest, true);
   return ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name.text === name).getText(ast);
 }
-function environment({ closeError, holdJoin = false } = {}) {
-  const wire = [], received = [], callbacks = [], timers = new Set();
+function environment({ closeError, holdJoin = false, holdClose = false } = {}) {
+  const wire = [], received = [], callbacks = [], timers = new Set(), roomLogs = [], closeReplies = [];
   const context = vm.createContext({ console, JSON, Promise, Date, Math, Error, Map, setTimeout(fn, delay) {
     if (!delay) { queueMicrotask(fn); return 0; }
     const timer = { fn, delay }; timers.add(timer); return timer;
@@ -88,12 +88,13 @@ function environment({ closeError, holdJoin = false } = {}) {
     joinRoom(options, cb) {
       received.push({ method: 'joinRoom', args: plain([options]) });
       const task = life.lifecycle.begin('room', life.currentScope(), cb);
-      task.object = { phase: 'connected', disconnect: async () => { closeCount++; if (closeError) throw new Error(closeError); } };
+      task.object = { phase: 'connected', logger: { error:message=>roomLogs.push(message) }, disconnect: async () => { closeCount++; if (holdClose) await new Promise(resolve=>closeReplies.push(resolve)); if (closeError) throw new Error(closeError); task.object.phase = 'disconnected'; } };
       const complete = () => { task.settle(); life.lifecycle.activate(task, holdJoin ? JSON.stringify({ isWritable: true, observerId: 1, state: {} }) : '{}'); };
       if (holdJoin) joinReplies.push(complete); else complete();
       life.inScope(task.scope, () => scoped.registerAsyn('room', Object.fromEntries(['disconnect', 'dispatchDocsEvent', 'getPageState', 'addApp'].map(name => [name, handler(sources.Room, name)]))));
     },
     leaveRoom: handler(sources.SDK, 'leaveRoom'),
+    continueAfterLeaveFailure: handler(sources.SDK, 'continueAfterLeaveFailure'),
   };
   scoped.registerAsyn('sdk', sdk);
   const { SdkJsInterface } = requireModule('./JsInterfaces');
@@ -121,10 +122,24 @@ function environment({ closeError, holdJoin = false } = {}) {
     return input;
   }
   return { native, controller, join, wire, received, callbacks, nativeCallbacks, sdkInterface, sdkEvents,
-    scoped, life, context, joinReplies, get closeCount() { return closeCount; } };
+    scoped, life, context, joinReplies, roomLogs, closeReplies, timeoutLeave() { for(const timer of [...timers]) if(timer.delay===20000) {timers.delete(timer);timer.fn();} }, get closeCount() { return closeCount; } };
 }
 const tests = [];
 const test = (name, run) => tests.push({ name, run });
+for(const api of ['leaveRoom','disconnect'])test(`actual JSON ${api} failure stays observable and next join retires both lifecycle scopes`,async()=>{
+ const e=environment({closeError:'synthetic old close failure'});await e.join();const old=e.life.lifecycle.task;
+ await assert.rejects(e.controller[api](),/synthetic old close failure/);assert.equal(e.roomLogs.length,1);
+ await e.join();assert.equal(e.native.state,'active');assert.equal(e.life.lifecycle.state,'active');assert.notEqual(e.life.lifecycle.task,old);
+ assert.equal(e.received.filter(x=>x.method==='joinRoom').length,2);assert.equal(e.closeCount,1);
+ e.life.lifecycle.phase(old,'error');assert.equal(e.life.lifecycle.state,'active');e.native.destroy();return e;
+});
+test('actual JSON replacement after Native leave deadline continues; late JS close cannot poison new Room',async()=>{
+ const e=environment({holdClose:true});await e.join();const joining=e.join();
+ for(let i=0;i<30;i++)await Promise.resolve();assert.equal(e.closeCount,1);e.timeoutLeave();await joining;
+ assert.equal(e.roomLogs.length,1);assert.equal(e.life.lifecycle.state,'active');assert.equal(e.native.state,'active');
+ e.closeReplies[0]();for(let i=0;i<30;i++)await Promise.resolve();assert.equal(e.native.state,'active');assert.equal(e.life.lifecycle.state,'active');
+ e.native.destroy();return e;
+});
 test('actual JSON preserves explicit false, nested options, enums, omission and native T0', async () => {
   const e = environment();
   await e.join({ writable: false, disableDeviceInputs: false, useMultiViews: false,

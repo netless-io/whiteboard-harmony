@@ -4,6 +4,8 @@ import { window } from '@kit.ArkUI';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    AppStorage.setOrCreate<boolean>('DestroyedHostEnabled', want.parameters?.['destroyedHostE2E'] === 'true');
+    AppStorage.setOrCreate<string>('DestroyedHostCommand', '');
     AppStorage.setOrCreate<boolean>('ReleaseE2EEnabled', want.parameters?.['releaseE2E'] === 'true');
     AppStorage.setOrCreate<boolean>('ReleaseE2EDeferred', want.parameters?.['releaseDeferred'] === 'true');
     AppStorage.setOrCreate<boolean>('ReleaseE2EPreload', want.parameters?.['releasePreload'] === 'true');
@@ -25,6 +27,10 @@ export default class EntryAbility extends UIAbility {
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    if (AppStorage.get<boolean>('DestroyedHostEnabled')) {
+      const command = want.parameters?.['matrixCommand'];
+      if (typeof command === 'string') AppStorage.set<string>('DestroyedHostCommand', command);
+    }
     if (AppStorage.get<boolean>('ReleaseE2EEnabled')) {
       const command = want.parameters?.['releaseCommand'];
       if (typeof command === 'string') AppStorage.set<string>('ReleaseE2ECommand', command);
@@ -49,7 +55,8 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-    windowStage.loadContent(AppStorage.get<boolean>('ReleaseE2EEnabled') ? 'pages/ReleaseE2E' :
+    windowStage.loadContent(AppStorage.get<boolean>('DestroyedHostEnabled') ? 'pages/DestroyedHostE2E' :
+      AppStorage.get<boolean>('ReleaseE2EEnabled') ? 'pages/ReleaseE2E' :
       (AppStorage.get<boolean>('LaunchBenchEnabled') ? 'pages/LaunchPreloadBenchmark' :
       (AppStorage.get<boolean>('WhitePreloadProbe') || AppStorage.get<boolean>('WhiteWorkerProbe') ? 'pages/PreloadBoard' : 'pages/Index')), (err) => {
       if (err.code) {

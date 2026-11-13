@@ -39,6 +39,11 @@ export class DsBridge {
   private state: string = 'idle';
   private initialized: boolean = false;
   private invalid: boolean = false;
+  private destroyed: boolean = false;
+  private navigationInvalid: boolean = false;
+  private recoverDocument?: () => void;
+  private joinDeadline?: number;
+  private leaveDeadline?: number;
   private pending?: Callback<object>;
   private ready: (() => void)[] = [];
   private closeCallbacks?: Callback<object>[];
@@ -62,6 +67,19 @@ export class DsBridge {
   private preloadEpoch: number = 0;
   private preloadObserved: boolean = false;
   private preloadDelivered: boolean = false;
+
+  setDocumentRecovery(action: () => void): void { this.recoverDocument = action; }
+  private recoverNavigation(): void {
+    if (!this.navigationInvalid || this.destroyed) return;
+    this.navigationInvalid = false; this.invalid = false;
+    if (this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
+    this.identity = undefined;
+    this.scope.documentId = ''; this.scope.generation++;
+    this.state = 'idle'; this.initialized = false;
+    this.closeResult = undefined; this.closeCallbacks = undefined; this.ready = [];
+    this.cancelPreparation(); this.dsInitBridge.invalidate();
+    this.recoverDocument?.();
+  }
 
   setPreloadCallback(callback?: (result: WhitePreloadResult) => void): void {
     this.preloadCallback = callback;
@@ -133,6 +151,7 @@ export class DsBridge {
     this.prepareConfiguration(sdkOptions, timeoutMs, callback, false);
   }
   private prepareConfiguration(sdkOptions: object, timeoutMs: number, callback: Callback<object>, admitted: boolean): void {
+    this.recoverNavigation();
     if (this.invalid || !Number.isFinite(timeoutMs) || timeoutMs < 0) {
       callback(this.error(this.invalid ? 'HostInvalid' : 'InvalidPreparationOptions')); return;
     }
@@ -236,6 +255,9 @@ export class DsBridge {
         const envelope = args.data as ESObject as LifecycleEnvelope;
         if (!this.matches(envelope.scope) || this.invalid) return JSON.stringify(ret);
         callbackScope = envelope.scope;
+        if (nameStr[0] === 'sdk' && nameStr[1] === 'documentNavigating') {
+          this.pageBegin(); return JSON.stringify(ret);
+        }
         if (nameStr[0] === 'sdk' && nameStr[1] === 'lifecycleState') {
           const next: string = (envelope.value as LifecycleState).state;
           if (next === 'blocked' || (next === 'idle' && this.closeResult !== undefined && !this.isError(this.closeResult))) this.state = next;
@@ -366,6 +388,7 @@ export class DsBridge {
 
   /** Explicit initialization replaces the previous Room, including a detached component with the same identity. */
   initializeRoom(sdkOptions: object, roomOptions: object, ready: Callback<object>): boolean {
+    this.recoverNavigation();
     this.logPreload('native_join_entry');
     const sdkSnapshot: SdkOptions = JSON.parse(JSON.stringify(sdkOptions)) as SdkOptions;
     const parameters: RoomOptions = JSON.parse(JSON.stringify(roomOptions)) as RoomOptions;
@@ -382,19 +405,26 @@ export class DsBridge {
       DsBridge.replacements.set(key, request); this.replacement = request;
       if (previous) previous.host.cancelReplacement(previous);
       if (local && local !== previous) this.cancelReplacement(local);
+      const localGeneration: number = this.scope.generation;
       this.closeRoom((value: object) => {
         if (!this.currentReplacement(request)) return;
-        if (this.isError(value)) { this.finishReplacement(request, value); return; }
+        if (this.isError(value)) this.continueAfterFailedLeave(localGeneration, value);
         const closed: Callback<object> = (result: object) => {
           if (!this.currentReplacement(request)) return;
-          if (this.isError(result)) { this.finishReplacement(request, result); return; }
           request.waiting = false; DsBridge.replacements.delete(key); this.replacement = undefined;
           DsBridge.owners.set(key, this); this.identity = key;
           this.beginRoom(sdkSnapshot, parameters, ready);
         };
         // The target owner may have switched identity while this host was closing.
         const old: DsBridge | undefined = DsBridge.owners.get(key);
-        if (old && old !== this) old.closeRoom(closed); else closed('{}' as ESObject);
+        if (old && old !== this) {
+          const oldGeneration: number = old.scope.generation;
+          old.closeRoom((result: object) => {
+            if (!this.currentReplacement(request)) return;
+            if (this.isError(result)) old.continueAfterFailedLeave(oldGeneration, result);
+            closed('{}' as ESObject);
+          });
+        } else closed('{}' as ESObject);
       });
     });
     return true;
@@ -423,7 +453,7 @@ export class DsBridge {
     this.closeResult = undefined; this.closeCallbacks = undefined;
     this.pending = ready;
     const generation: number = this.scope.generation;
-    setTimeout(() => {
+    this.joinDeadline = setTimeout(() => {
       if (this.scope.generation !== generation || !this.pending || this.state !== 'joining') return;
       this.state = 'closing'; const pending = this.pending; this.pending = undefined;
       pending(this.error('JoinTimeout'));
@@ -432,11 +462,12 @@ export class DsBridge {
     }, (roomOptions as RoomOptions).timeout ?? 45000);
     this.prepareConfiguration(sdkOptions, (roomOptions as RoomOptions).timeout ?? 45000, (setupValue: object) => {
       if (this.invalid || generation !== this.scope.generation || !this.pending) return;
-      if (this.isError(setupValue)) { const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending(setupValue); return; }
+      if (this.isError(setupValue)) { this.cancelJoinDeadline(); const pending = this.pending; this.pending = undefined; this.state = 'blocked'; pending(setupValue); return; }
       this.addNativeTags(roomOptions as NativeJoinRoomOptions);
       this.logPreload('join_dispatch');
       this.send('sdk.joinRoom', [roomOptions], (value: object) => {
         if (this.invalid || generation !== this.scope.generation || !this.pending) return;
+        this.cancelJoinDeadline();
         const pending = this.pending; this.pending = undefined;
         if (!this.isError(value)) { this.state = 'active'; this.logPreload('room_ready'); }
         else if (this.state !== 'idle' && this.state !== 'closing') this.state = 'blocked';
@@ -481,19 +512,39 @@ export class DsBridge {
     });
   }
   private closeRoom(handler: Callback<object>): void {
+    if (this.destroyed) { handler('{}' as ESObject); return; }
     if (this.invalid) { handler(this.error('HostInvalid')); return; }
     if (this.closeResult !== undefined) { handler(this.closeResult); return; }
     if (this.closeCallbacks) { this.closeCallbacks.push(handler); return; }
     if (this.state === 'idle') { handler('{}' as ESObject); return; }
     this.state = 'closing'; this.closeCallbacks = [handler];
+    this.cancelJoinDeadline();
     const pending = this.pending; this.pending = undefined; pending?.(this.error('Cancelled'));
     if (pending) this.cancelPreparation();
     const generation: number = this.scope.generation;
-    setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
-    this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value));
+    this.leaveDeadline = setTimeout(() => this.finishLeave(generation, this.error('LeaveTimeout')), 20000);
+    try { this.send('sdk.leaveRoom', [], (value: object) => this.finishLeave(generation, value)); }
+    catch (error) { this.finishLeave(generation, this.error('LeaveFailed')); }
+  }
+  private continueAfterFailedLeave(generation: number, result: object): void {
+    if (generation !== this.scope.generation) return;
+    let message: string = 'LeaveFailed';
+    try { if (typeof result === 'string') message = (JSON.parse(result) as LifecycleErrorResult).__error.message; } catch (_) {}
+    try { Logger.error('Previous room leave failed; continuing replacement: ' + message); } catch (_) {}
+    try { this.send('sdk.continueAfterLeaveFailure', [message]); } catch (_) {}
+    if (this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
+    this.identity = undefined;
+    this.cancelJoinDeadline();
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
+    this.scope.generation++;
+    this.closeResult = undefined;
+    this.state = this.invalid ? 'blocked' : 'idle';
   }
   private finishLeave(generation: number, value: object): void {
     if (generation !== this.scope.generation || this.closeResult !== undefined) return;
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
     this.closeResult = value;
     this.state = typeof value === 'string' && (value as string).includes('"__error"') ? 'blocked' : 'idle';
     if (this.state === 'idle' && this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
@@ -503,6 +554,9 @@ export class DsBridge {
   invalidate(): void {
     if (this.invalid) return;
     this.invalid = true; this.state = 'blocked'; this.ready = [];
+    this.cancelJoinDeadline();
+    if (this.leaveDeadline !== undefined) clearTimeout(this.leaveDeadline);
+    this.leaveDeadline = undefined;
     this.admissionEpoch++;
     this.finishPreparation(this.error('HostInvalid')); this.preparedKey = '';
     if (this.replacement) this.finishReplacement(this.replacement, this.error('HostInvalid'));
@@ -511,19 +565,35 @@ export class DsBridge {
     callbacks?.forEach((callback: Callback<object>) => callback(this.error('HostInvalid')));
     this.dsInitBridge.invalidate();
   }
+  /** The SDK component/renderer is gone; no old JS reply is required. */
+  destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.identity && DsBridge.owners.get(this.identity) === this) DsBridge.owners.delete(this.identity);
+    this.identity = undefined;
+    const callbacks = this.closeCallbacks; this.closeCallbacks = undefined;
+    this.invalidate();
+    this.closeResult = '{}' as ESObject;
+    callbacks?.forEach((callback: Callback<object>) => callback(this.closeResult!));
+  }
+  private cancelJoinDeadline(): void {
+    if (this.joinDeadline !== undefined) clearTimeout(this.joinDeadline);
+    this.joinDeadline = undefined;
+  }
+  private logNavigationFailure(message: string): void {
+    try { Logger.error(message); } catch (_) { /* Host logging must not prevent navigation recovery. */ }
+  }
   pageBegin(): boolean {
     if (this.scope.documentId.length === 0 || this.invalid) return false;
-    if (this.state !== 'idle' || (this.scope.generation > 0 && this.closeResult === undefined) ||
-      (typeof this.closeResult === 'string' && (this.closeResult as string).includes('"__error"'))) {
-      this.invalidate(); return false;
+    this.navigationInvalid = true;
+    if (this.state !== 'idle') {
+      try { this.send('sdk.leaveRoom', [], (value: object) => {
+        if (this.isError(value)) this.logNavigationFailure('Room close during navigation: ' + String(value));
+      }); } catch (_) { this.logNavigationFailure('Room close during navigation failed'); }
+      this.logNavigationFailure('Room document navigated; closure unconfirmed, next join will restore the SDK page');
     }
-    // An explicit refresh after a completed leave starts a new document, never a recovery retry.
-    this.cancelPendingJoins();
-    this.cancelPreparation();
-    this.scope.documentId = ''; this.scope.generation++; this.initialized = false;
-    this.closeResult = undefined; this.closeCallbacks = undefined; this.ready = [];
-    this.dsInitBridge.invalidate();
-    return true;
+    this.invalidate();
+    return false;
   }
 
   callHandler(method: string, args: ESObject[] | null, handler?: Callback<object>): void {

@@ -1,5 +1,12 @@
 # 版本更新记录
 
+## [0.2.14] - 2026-11-12
+
+- 修复 getRoomState / entireScenes / 多窗口 API 的返回解析、错误透传及缺少 Bridge 时永久等待的问题。
+- 修复组件卸载后的旧 owner 残留、同身份宿主接替和同宿主再次入房；旧离房失败/超时记录异常后继续新的入房。
+- 支持页面重载/导航后重新入房，隔离迟到回调；保持普通入房、显式预加载与后台自动重连的现有行为。
+- 内嵌 Bridge 6b1e3cd；Web SDK 2.16.63、WindowManager 1.0.29、Appliance Plugin 1.1.49、app-slide 0.2.109 均保持不变。
+
 ## [0.2.13] - 2026-11-09
 
 - 内嵌正式 Bridge 0a3fd1f：white-web-sdk 2.16.63、appliance-plugin 1.1.49、window-manager 1.0.29、app-slide 0.2.109。

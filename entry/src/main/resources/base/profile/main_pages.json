@@ -5,6 +5,7 @@
     "pages/MultipleBoard",
     "pages/PreloadBoard",
     "pages/LaunchPreloadBenchmark",
-    "pages/ReleaseE2E"
+    "pages/ReleaseE2E",
+    "pages/DestroyedHostE2E"
   ]
 }

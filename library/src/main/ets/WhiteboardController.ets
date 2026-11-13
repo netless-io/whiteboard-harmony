@@ -211,22 +211,33 @@ export class WhiteboardController {
     return false;
   }
 
-  private parseJsonResult<T>(result: object | string | boolean | undefined, reject: (reason: Error) => void): T | null {
-    if (typeof result !== 'string') {
-      reject(new Error("Expected string result, but got a different type"));
-      return null;
-    }
-    const sdkError = SDKError.promiseError(result);
-    if (sdkError) {
-      reject(new Error(sdkError.toString()));
-      return null;
-    }
+  private parseJsonResult<T>(result: object | string | boolean | undefined, reject: (reason: Error) => void, allowBoolean: boolean = false): T | null {
     try {
-      return JSON.parse(result) as T;
+      // The shared Bridge returns both JSON strings and structured JSON values.
+      const value: ESObject = typeof result === 'string' ? JSON.parse(result) : result;
+      if (this.rejectOnSdkError(value, reject)) return null;
+      if (value === null || value === undefined ||
+        (typeof value !== 'object' && !(allowBoolean && typeof value === 'boolean'))) {
+        reject(new Error('Expected a JSON object, array or boolean result'));
+        return null;
+      }
+      return value as T;
     } catch (error) {
       reject(error as Error);
       return null;
     }
+  }
+
+  private rejectOnSdkError(result: object | string | boolean | undefined, reject: (reason: Error) => void): boolean {
+    const error = typeof result === 'string' ? SDKError.promiseError(result) :
+      (result !== null && typeof result === 'object' ? SDKError.promiseErrorFromJson(result as ESObject) : null);
+    if (!error) return false;
+    reject(new Error(error.toString()));
+    return true;
+  }
+
+  private isRecord(value: ESObject): boolean {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
   }
 
   private callSdkJsonMethod<T>(method: string): Promise<T> {
@@ -236,7 +247,7 @@ export class WhiteboardController {
       }
       this.whiteboard?.callHandler(method, [], (result: object | string | boolean | undefined) => {
         const resultObj = this.parseJsonResult<T>(result, reject);
-        if (!resultObj) {
+        if (resultObj === null) {
           return;
         }
         resolve(resultObj);
@@ -461,9 +472,14 @@ export class WhiteboardController {
       }
       this.whiteboard?.callHandler("room.state.getRoomState", [], (result: object | string | boolean | undefined) => {
         const roomState = this.parseJsonResult<RoomState>(result, reject);
-        if (roomState) {
-          resolve(roomState)
+        if (roomState === null) return;
+        const pageState: ESObject = roomState.pageState;
+        if (!this.isRecord(roomState) || (pageState !== undefined &&
+          (!this.isRecord(pageState) || !Number.isFinite(pageState.index) || !Number.isFinite(pageState.length)))) {
+          reject(new Error('Invalid room state result'));
+          return;
         }
+        resolve(roomState);
       });
     });
   }
@@ -473,7 +489,9 @@ export class WhiteboardController {
    */
   getRoomPhase(): Promise<RoomPhase> {
     return new Promise<RoomPhase>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) return;
       this.whiteboard?.callHandler("room.getRoomPhase", [], (result: object | string | boolean | undefined) => {
+        if (this.rejectOnSdkError(result, reject)) return;
         if (typeof result === 'string') {
           const phase = toRoomPhase(result)
           if (phase) {
@@ -604,9 +622,16 @@ export class WhiteboardController {
       }
       this.whiteboard?.callHandler("displayer.entireScenes", [], (result: object | string | boolean | undefined) => {
         const entireScenes = this.parseJsonResult<Record<string, Scene[]>>(result, reject);
-        if (entireScenes) {
-          resolve(entireScenes)
+        if (entireScenes === null) return;
+        if (!this.isRecord(entireScenes) || !Object.keys(entireScenes).every((path: string): boolean => {
+          const scenes: ESObject = entireScenes[path];
+          return Array.isArray(scenes) && scenes.every((scene: ESObject): boolean =>
+            this.isRecord(scene) && typeof scene.name === 'string');
+        })) {
+          reject(new Error('Invalid entire scenes result'));
+          return;
         }
+        resolve(entireScenes);
       });
     });
   }
@@ -617,6 +642,7 @@ export class WhiteboardController {
    */
   setScenePath(path: string): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) return;
       this.whiteboard?.callHandler("room.setScenePath", [path], (result: object | string | boolean | undefined) => {
         if (typeof result === 'string') {
           const error = SDKError.promiseError(result)
@@ -645,6 +671,7 @@ export class WhiteboardController {
    */
   setSceneIndex(index: number): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) return;
       this.whiteboard?.callHandler("room.setSceneIndex", [index], (result: object | string | boolean | undefined) => {
         if (typeof result === 'string') {
           const error = SDKError.promiseError(result)
@@ -838,6 +865,11 @@ export class WhiteboardController {
         return;
       }
       this.whiteboard?.callHandler("room.closeApp", [appId], (result: object | string | boolean | undefined) => {
+        if (this.rejectOnSdkError(result, reject)) return;
+        if (result !== undefined && result !== null) {
+          reject(new Error('Expected an empty closeApp result'));
+          return;
+        }
         resolve(true)
       })
     });
@@ -860,10 +892,13 @@ export class WhiteboardController {
           resolve(result);
           return;
         }
-        const committed = this.parseJsonResult<boolean>(result, reject);
-        if (committed !== null) {
-          resolve(committed);
+        const committed = this.parseJsonResult<boolean>(result, reject, true);
+        if (committed === null) return;
+        if (typeof committed !== 'boolean') {
+          reject(new Error('Expected boolean focus result'));
+          return;
         }
+        resolve(committed);
       });
     });
   }
@@ -897,9 +932,13 @@ export class WhiteboardController {
       }
       this.whiteboard?.callHandler("room.queryAllApps", [], (result: object | string | boolean | undefined) => {
         const appMap = this.parseJsonResult<Record<string, WindowAppSyncAttrs>>(result, reject);
-        if (appMap) {
-          resolve(appMap)
+        if (appMap === null) return;
+        if (!this.isRecord(appMap) || !Object.keys(appMap).every((id: string): boolean =>
+          this.isRecord(appMap[id]) && typeof appMap[id].kind === 'string')) {
+          reject(new Error('Invalid apps result'));
+          return;
         }
+        resolve(appMap);
       })
     });
   }
@@ -930,6 +969,7 @@ export class WhiteboardController {
         return;
       }
       this.whiteboard?.callHandler("room.insertText", [x, y, text], (result: object | string | boolean | undefined) => {
+        if (this.rejectOnSdkError(result, reject)) return;
         if (typeof result === 'string') {
           resolve(result);
         } else {
@@ -990,7 +1030,9 @@ export class WhiteboardController {
    */
   nextPage(): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) return;
       this.whiteboard?.callHandler("room.nextPage", [], (result: object | string | boolean | undefined) => {
+        if (this.rejectOnSdkError(result, reject)) return;
         if (typeof result === 'boolean') {
           resolve(result);
         } else {
@@ -1005,7 +1047,9 @@ export class WhiteboardController {
    */
   prevPage(): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
+      if (this.rejectOnBridgeMissing(reject)) return;
       this.whiteboard?.callHandler("room.prevPage", [], (result: object | string | boolean | undefined) => {
+        if (this.rejectOnSdkError(result, reject)) return;
         if (typeof result === 'boolean') {
           resolve(result);
         } else {
