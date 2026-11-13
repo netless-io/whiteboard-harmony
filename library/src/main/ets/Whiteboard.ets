@@ -41,7 +41,10 @@ export struct Whiteboard {
   onCallbacksChanged(): void { this.dsBridge.setPreloadCallback(this.callbacks.onPreloadStateChange); }
 
   aboutToAppear(): void {
-    this.dsBridge.setDocumentRecovery(() => this.webController.loadUrl($rawfile('whiteboard/index.html')));
+    this.dsBridge.setDocumentRecovery(() => {
+      this.pageInitialized = false;
+      this.webController.loadUrl($rawfile('whiteboard/index.html'));
+    });
     try {
       webview.WebviewController.setWebDebuggingAccess(this.webDebug);
     } catch (error) {
@@ -74,8 +77,10 @@ export struct Whiteboard {
         .javaScriptAccess(true)
         .overviewModeAccess(true)
         .metaViewport(true)
+        .keyboardAvoidMode(WebKeyboardAvoidMode.OVERLAYS_CONTENT)
         .width("100%")
         .height("100%")
+        .backgroundColor(Color.Transparent)
         .onControllerAttached(() => {
           this.webController.registerJavaScriptProxy(this.dsBridge, "_dsbridge", ["call"])
         })
@@ -133,13 +138,15 @@ export struct Whiteboard {
         })
         .onRenderExited((event) => {
           this.dsBridge.destroy();
+          this.controller.detachWhiteboard(this.dsBridge)
           if (event) {
             Logger.info('onRenderExited reason:' + event.renderExitReason);
           }
         })
         .onDisAppear(() => {
-          Logger.info('onDisAppear')
+          this.controller.detachWhiteboard(this.dsBridge)
         })
     }
+    .backgroundColor(Color.Transparent)
   }
 }

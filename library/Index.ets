@@ -49,6 +49,8 @@ export {
   RoomKickedReason,
   RoomPhase,
   RoomState,
+  ViewMode,
+  PageState,
   Scene,
   PptPage,
   SlideErrorType,
