@@ -1,5 +1,6 @@
 import { DsBridge } from './DsBridge';
-import { buildRoomOptions } from './WhiteboardJoinOptions';
+import { buildRoomOptions, buildSdkOptions } from './WhiteboardJoinOptions';
+import { WhiteboardOptions } from './WhiteboardOptions';
 import {
   AnimationMode,
   Appliance,
@@ -53,6 +54,13 @@ export class WhiteboardController {
   private preparationCancels: ((reason: Error) => void)[] = []
   private attachEpoch: number = 0
   private joinCancels: ((reason: Error) => void)[] = []
+
+  isAttached(): boolean { return this.whiteboard !== undefined; }
+
+  rejoinSession(options: WhiteboardOptions): Promise<void> {
+    this.configureSdk(buildSdkOptions(options), this.roomReady ?? ((_writable: boolean): void => {}));
+    return this.joinRoom(options).then((): void => {});
+  }
 
   configureSdk(options: SdkOptions, roomReady: (writable: boolean) => void): void {
     this.sdkOptions = JSON.parse(JSON.stringify(options)) as SdkOptions;

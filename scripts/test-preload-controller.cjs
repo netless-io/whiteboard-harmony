@@ -17,7 +17,7 @@ function host(){return {
  cancelPendingJoins(){},leaveRoom(cb){cb("{}");},calls:0,joins:[],info:{ready:false,viewId:'view',documentId:'doc',setupCount:1,generation:0,roomState:'idle',elapsedMs:10},
  prepare(sdk,timeout,cb){this.calls++;this.sdk=sdk;this.timeout=timeout;this.reply=(value='{}')=>{this.info.ready=!value.includes('__error');cb(value);};},
  preparationInfo(){return this.info;},cancelPreparation(){this.info.ready=false;this.cancelled=true;},
- initializeRoom(sdk,room,cb){this.joins.push(room);this.joinReply=cb;if(!this.holdJoin)cb('{"isWritable":false,"observerId":1,"state":{}}');},
+ initializeRoom(sdk,room,cb){this.joinSdk=sdk;this.joins.push(room);this.joinReply=cb;if(!this.holdJoin)cb('{"isWritable":false,"observerId":1,"state":{}}');},
 };}
 const tests=[];const test=(name,fn)=>tests.push({name,fn});
 const flush=async()=>{for(let n=0;n<8;n++)await Promise.resolve();};
@@ -48,6 +48,20 @@ test('join snapshots room before waiting for attachment and preserves wire names
  const p=c.joinRoom(room);room.uid='mutated';room.windowParams.fullscreen=true;
  let ready=0;c.configureSdk({appIdentifier:'app'},w=>{assert.equal(w,false);ready++});c.attachWhiteboard(b);await p;
  assert.equal(b.joins[0].uuid,'room');assert.equal(b.joins[0].uid,'uid');assert.equal(b.joins[0].isWritable,false);assert.equal(b.joins[0].windowParams.fullscreen,false);assert.equal(ready,1);
+});
+test('rejoinSession rebuilds SDK options and keeps the room-ready callback',async()=>{
+ const c=new WhiteboardController(),b=host(),ready=[];
+ assert.equal(c.isAttached(),false);
+ c.configureSdk({appIdentifier:'app'},()=>ready.push('ready'));c.attachWhiteboard(b);
+ assert.equal(c.isAttached(),true);
+ const options={appIdentifier:'app',roomUuid:'room',roomToken:'mock',uid:'uid',region:'cn-hz',enableModelPreload:true};
+ assert.equal(await c.rejoinSession(options),undefined);
+ assert.equal(b.joinSdk.enableModelPreload,true);assert.equal(b.joins[0].uid,'uid');
+ assert.deepEqual(ready,['ready']);
+ assert.equal(await c.rejoinSession({...options,uid:'next',enableModelPreload:false}),undefined);
+ assert.equal(b.joinSdk.enableModelPreload,false);assert.equal(b.joins[1].uid,'next');
+ assert.deepEqual(ready,['ready','ready']);
+ c.detachWhiteboard(b);assert.equal(c.isAttached(),false);
 });
 test('missing attachment has a bounded deadline and invalid timeouts reject',async()=>{
  const c=new WhiteboardController();await assert.rejects(c.prepare(5),/AttachTimeout/);await assert.rejects(c.prepare(0),/InvalidPreparationOptions/);
