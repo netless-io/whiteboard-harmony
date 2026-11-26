@@ -795,7 +795,7 @@ export interface SlideListener {
   slideOpenUrl?(url: string): void;
 
   /** 资源加载重试耗尽；jsStack 为可选的 JS 诊断堆栈。 */
-  onSlideResourceMaxRetries?(url: string, message: string, jsStack?: string): void;
+  onSlideResourceMaxRetries?(url: string, message: string, jsStack?: string, slideId?: string, pageIndex?: number, isPreload?: boolean): void;
 
   /**
    * Slide 加载错误回调。

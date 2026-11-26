@@ -61,7 +61,7 @@ export class WhiteboardCallbacks {
   /** Slide 渲染错误。slideIndex 保留底层索引，-1 表示未提供。 */
   onSlideError?: (type: SlideErrorType, errorMsg: string, slideId: string, slideIndex: number) => void;
   /** Slide 资源加载重试耗尽；与通用 onSlideError 分开通知。 */
-  onSlideResourceMaxRetries?: (url: string, message: string, jsStack?: string) => void;
+  onSlideResourceMaxRetries?: (url: string, message: string, jsStack?: string, slideId?: string, pageIndex?: number, isPreload?: boolean) => void;
   /** 点击 Slide 中的链接时通知宿主。 */
   slideOpenUrl?: (url: string) => void;
   /** 需 enableSlideInterrupterAPI=true；异步处理后必须调用 complete 返回替换 URL。 */
@@ -197,7 +197,7 @@ export class WhiteboardCallbacks {
   }
 
   setOnSlideResourceMaxRetries(
-    callback: (url: string, message: string, jsStack?: string) => void,
+    callback: (url: string, message: string, jsStack?: string, slideId?: string, pageIndex?: number, isPreload?: boolean) => void,
   ): WhiteboardCallbacks {
     this.onSlideResourceMaxRetries = callback;
     return this;
