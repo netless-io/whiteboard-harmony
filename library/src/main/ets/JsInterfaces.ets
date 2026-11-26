@@ -98,8 +98,11 @@ export class SdkJsInterface {
     const url: string = typeof payload.url === 'string' ? payload.url : '';
     const message: string = typeof payload.message === 'string' ? payload.message : '';
     const jsStack: string = typeof payload.jsStack === 'string' ? payload.jsStack : '';
-    this.notify(() => this.getSlideListener()?.onSlideResourceMaxRetries?.(url, message, jsStack));
-    this.notify(() => this.whiteboardCallbacks?.onSlideResourceMaxRetries?.(url, message, jsStack));
+    const slideId = typeof payload.slideId === 'string' ? payload.slideId : undefined;
+    const pageIndex = typeof payload.pageIndex === 'number' ? payload.pageIndex : undefined;
+    const isPreload = typeof payload.isPreload === 'boolean' ? payload.isPreload : undefined;
+    this.notify(() => this.getSlideListener()?.onSlideResourceMaxRetries?.(url, message, jsStack, slideId, pageIndex, isPreload));
+    this.notify(() => this.whiteboardCallbacks?.onSlideResourceMaxRetries?.(url, message, jsStack, slideId, pageIndex, isPreload));
   };
   slidePageStateChanged = (args: string | object): void => {
     const jsonObject: Record<string, Object> | null = this.slidePayload(args);
