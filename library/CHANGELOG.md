@@ -1,3 +1,8 @@
+## [0.2.15] - 2026-11-28
+
+- Embed Bridge 914f623 to restore standard WebSocket constructor state constants and avoid an unnecessary close-wait timeout after the old socket is already CLOSED.
+- Keep genuine CLOSING waits and existing reconnect/cleanup behavior; preserve Web SDK 2.16.63, WindowManager 1.0.29, Appliance Plugin 1.1.49 and app-slide 0.2.109.
+
 # 版本更新记录
 
 ## [0.2.14] - 2026-11-12
